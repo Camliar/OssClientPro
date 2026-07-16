@@ -78,26 +78,36 @@ public class ConfigService
         });
     }
 
-    // ─── DPAPI encryption (Windows user-account-bound) ───
+    // ─── Encryption (Windows: DPAPI, macOS/Linux: base64 obfuscation) ───
 
     private static string Encrypt(string plainText)
     {
+#if WINDOWS
         var bytes = System.Text.Encoding.UTF8.GetBytes(plainText);
         var cipher = ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
         return Convert.ToBase64String(cipher);
+#else
+        // Non-Windows: base64 obfuscation (not true encryption, but hides from casual view)
+        return "B64:" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(plainText));
+#endif
     }
 
     private static string TryDecrypt(string cipherText)
     {
         try
         {
+#if WINDOWS
             var cipher = Convert.FromBase64String(cipherText);
             var bytes = ProtectedData.Unprotect(cipher, null, DataProtectionScope.CurrentUser);
             return System.Text.Encoding.UTF8.GetString(bytes);
+#else
+            if (cipherText.StartsWith("B64:"))
+                return System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(cipherText[4..]));
+            return cipherText;
+#endif
         }
         catch
         {
-            // If decryption fails (e.g., old plain-text config), return as-is
             return cipherText;
         }
     }

@@ -1,0 +1,45 @@
+name: Build & Publish
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  # ─────────────────────── Windows x64 ───────────────────────
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish Windows x64
+        run: dotnet publish -c Release -r win-x64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OssClientPro-win-x64
+          path: bin/Release/net10.0/win-x64/publish/
+
+  # ─────────────────────── macOS arm64 ───────────────────────
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish macOS arm64
+        run: dotnet publish -c Release -r osx-arm64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OssClientPro-osx-arm64
+          path: bin/Release/net10.0/osx-arm64/publish/
