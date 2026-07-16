@@ -20,9 +20,11 @@ jobs:
       - name: Publish Windows x64
         run: dotnet publish -c Release -r win-x64
 
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+
       - name: Create NSIS installer
-        run: |
-          & 'C:\Program Files (x86)\NSIS\makensis.exe' installer\installer.nsi
+        run: makensis installer\installer.nsi
 
       - name: Zip portable version
         run: |

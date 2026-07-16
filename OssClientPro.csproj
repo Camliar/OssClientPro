@@ -86,7 +86,10 @@
     <Copy SourceFiles="@(MacNativeLibs)" DestinationFolder="$(MacAppMacOS)" Condition="Exists('@(MacNativeLibs)')" SkipUnchangedFiles="true" />
 
     <!-- Copy Assets -->
-    <Copy SourceFiles="$(PublishDir)Assets\Languages\**\*.*" DestinationFolder="$(MacAppResources)/Assets/Languages/%(RecursiveDir)" Condition="Exists('$(PublishDir)Assets')" />
+    <ItemGroup>
+      <MacAssets Include="$(PublishDir)Assets\Languages\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(MacAssets)" DestinationFolder="$(MacAppResources)/Assets/Languages/%(MacAssets.RecursiveDir)" />
 
     <!-- Generate Info.plist -->
     <WriteLinesToFile File="$(MacAppContents)/Info.plist"
