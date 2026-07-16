@@ -88,6 +88,7 @@ public partial class FileListViewModel : ViewModelBase
             _main.StatusMessage = _main.LanguageService["msg_connecting"];
 
             var prefix = _basePrefix.Length > 0 ? _basePrefix : null;
+            App.Log.Info($"ListObjects: bucket={SelectedBucket}, prefix={prefix ?? "(root)"}");
             var objects = await _ossService.ListObjectsAsync(SelectedBucket, prefix);
 
             Files.Clear();
@@ -111,6 +112,7 @@ public partial class FileListViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
+            App.Log.Error("FileList operation failed", ex);
             _main.StatusMessage = OssExceptionHelper.GetFriendlyMessage(ex, _main.LanguageService);
         }
         finally
@@ -171,6 +173,7 @@ public partial class FileListViewModel : ViewModelBase
 
             var localPath = files[0].Path.LocalPath;
             var objectName = _basePrefix + Path.GetFileName(localPath);
+            App.Log.Info($"Upload: local={localPath} → oss://{SelectedBucket}/{objectName}");
 
             IsFileOperationBusy = true;
             IsProgressVisible = true;
@@ -189,6 +192,7 @@ public partial class FileListViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
+            App.Log.Error("FileList operation failed", ex);
             _main.StatusMessage = OssExceptionHelper.GetFriendlyMessage(ex, _main.LanguageService);
         }
         finally
@@ -224,6 +228,7 @@ public partial class FileListViewModel : ViewModelBase
             if (folder.Count == 0) return;
 
             var localPath = Path.Combine(folder[0].Path.LocalPath, SelectedFile.Name);
+            App.Log.Info($"Download: oss://{SelectedBucket}/{SelectedFile.Key} → {localPath}");
 
             IsFileOperationBusy = true;
             IsProgressVisible = true;
@@ -241,6 +246,7 @@ public partial class FileListViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
+            App.Log.Error("FileList operation failed", ex);
             _main.StatusMessage = OssExceptionHelper.GetFriendlyMessage(ex, _main.LanguageService);
         }
         finally
@@ -282,8 +288,10 @@ public partial class FileListViewModel : ViewModelBase
         {
             IsFileOperationBusy = true;
 
+            App.Log.Info($"Delete: {toDelete.Count} file(s) from bucket={SelectedBucket}");
             foreach (var file in toDelete)
             {
+                App.Log.Info($"  Deleting: oss://{SelectedBucket}/{file.Key}");
                 await _ossService.DeleteFileAsync(SelectedBucket!, file.Key);
             }
 
@@ -295,6 +303,7 @@ public partial class FileListViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
+            App.Log.Error("FileList operation failed", ex);
             _main.StatusMessage = OssExceptionHelper.GetFriendlyMessage(ex, _main.LanguageService);
         }
         finally
@@ -318,6 +327,7 @@ public partial class FileListViewModel : ViewModelBase
         {
             var url = await Task.Run(() =>
                 _ossService.GeneratePresignedUrl(SelectedBucket!, SelectedFile.Key));
+            App.Log.Info($"GenerateSignedUrl: oss://{SelectedBucket}/{SelectedFile.Key}");
 
             var topLevel = TopLevel.GetTopLevel(MainWindow);
             if (topLevel?.Clipboard != null)
@@ -327,6 +337,7 @@ public partial class FileListViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
+            App.Log.Error("FileList operation failed", ex);
             _main.StatusMessage = OssExceptionHelper.GetFriendlyMessage(ex, _main.LanguageService);
         }
     }

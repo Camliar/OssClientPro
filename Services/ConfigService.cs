@@ -5,15 +5,13 @@ namespace OssClientPro.Services;
 
 /// <summary>
 /// Handles loading and saving <see cref="OssConfig"/> to a local config.json file.
+/// Uses source-generated JSON for AOT compatibility.
 /// </summary>
 public class ConfigService
 {
     private readonly string _configFilePath;
+    private static readonly OssConfigSerializerContext _jsonContext = new(new JsonSerializerOptions { WriteIndented = true });
 
-    /// <summary>
-    /// Initializes the config service and determines where config.json is stored.
-    /// On desktop, it is placed next to the executable.
-    /// </summary>
     public ConfigService()
     {
         var appDir = AppContext.BaseDirectory;
@@ -34,7 +32,7 @@ public class ConfigService
                     return new OssConfig();
 
                 var json = File.ReadAllText(_configFilePath);
-                return JsonSerializer.Deserialize<OssConfig>(json) ?? new OssConfig();
+                return JsonSerializer.Deserialize(json, _jsonContext.OssConfig) ?? new OssConfig();
             }
             catch (Exception ex)
             {
@@ -45,7 +43,7 @@ public class ConfigService
     }
 
     /// <summary>
-    /// Saves configuration to config.json with indented formatting.
+    /// Saves configuration to config.json.
     /// </summary>
     public Task SaveConfigAsync(OssConfig config)
     {
@@ -53,8 +51,7 @@ public class ConfigService
         {
             try
             {
-                var options = new JsonSerializerOptions { WriteIndented = true };
-                var json = JsonSerializer.Serialize(config, options);
+                var json = JsonSerializer.Serialize(config, _jsonContext.OssConfig);
                 File.WriteAllText(_configFilePath, json);
             }
             catch (Exception ex)

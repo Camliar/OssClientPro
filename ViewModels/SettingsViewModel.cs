@@ -138,13 +138,13 @@ public partial class SettingsViewModel : ViewModelBase
 
         await _configService.SaveConfigAsync(config);
 
-        // Apply language change immediately
+        App.Log.Info($"Config saved: endpoint={config.Endpoint}, bucket={config.DefaultBucket}, prefix={config.BasePrefix}, lang={config.Language}");
+
         _main?.LanguageService.SetLanguage(SelectedLanguage);
 
         SaveMessage = _main?.LanguageService?["msg_config_saved"] ?? "Configuration saved successfully.";
         IsSaveSuccess = true;
 
-        // Auto-connect after saving
         if (_main != null)
             await _main.ConnectAsync();
     }

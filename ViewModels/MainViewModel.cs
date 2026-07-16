@@ -118,40 +118,38 @@ public partial class MainViewModel : ViewModelBase
             if (!config.IsValid)
             {
                 StatusMessage = LanguageService["msg_invalid_config"];
+                App.Log.Warn("Connect skipped — invalid config");
                 return;
             }
 
+            App.Log.Info($"Connecting to {config.Endpoint}, region={config.Region}, bucket={config.DefaultBucket}, prefix={config.BasePrefix}");
             _ossService.Initialize(config);
 
-            // Apply the configured base prefix for file filtering
             FileList.SetBasePrefix(config.BasePrefix);
-
             FileList.Buckets.Clear();
 
             if (!string.IsNullOrEmpty(config.DefaultBucket))
             {
-                // When a default bucket is configured, use it directly.
-                // Skip ListBucketsAsync() to avoid permission errors — the
-                // account may only have access to this specific bucket.
                 FileList.Buckets.Add(config.DefaultBucket);
                 FileList.SelectedBucket = config.DefaultBucket;
+                App.Log.Info($"Using default bucket: {config.DefaultBucket}");
             }
             else
             {
-                // No default bucket: list all buckets so the user can pick one
                 var buckets = await _ossService.ListBucketsAsync();
                 foreach (var bucket in buckets)
-                {
-                    FileList.Buckets.Add(bucket.Name);
-                }
+                    FileList.Buckets.Add(bucket);
+                App.Log.Info($"Listed {FileList.Buckets.Count} buckets");
             }
 
             IsConnected = true;
             StatusMessage = string.Empty;
             NavigateToMain();
+            App.Log.Info("Connect succeeded");
         }
         catch (Exception ex)
         {
+            App.Log.Error("Connect failed", ex);
             StatusMessage = OssExceptionHelper.GetFriendlyMessage(ex, LanguageService);
         }
         finally

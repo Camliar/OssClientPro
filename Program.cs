@@ -1,18 +1,33 @@
-﻿using Avalonia;
-using System;
+using Avalonia;
+using System.Diagnostics;
 
 namespace OssClientPro;
 
 sealed class Program
 {
-    // Initialization code. Don't use any Avalonia, third-party APIs or any
-    // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
-    // yet and stuff might break.
     [STAThread]
-    public static void Main(string[] args) => BuildAvaloniaApp()
-        .StartWithClassicDesktopLifetime(args);
+    public static void Main(string[] args)
+    {
+        try
+        {
+            BuildAvaloniaApp()
+                .StartWithClassicDesktopLifetime(args);
+        }
+        catch (Exception ex)
+        {
+            App.Log.Error("FATAL crash in Main", ex);
+            var crashLog = Path.Combine(AppContext.BaseDirectory, "crash.log");
+            File.WriteAllText(crashLog,
+                $"=== OssClientPro Crash Report ===\n" +
+                $"Time: {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n" +
+                $"OS:   {Environment.OSVersion}\n" +
+                $"Type: {ex.GetType().FullName}\n" +
+                $"Message: {ex.Message}\n" +
+                $"Stack:\n{ex}\n");
+            throw;
+        }
+    }
 
-    // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
