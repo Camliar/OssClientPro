@@ -149,6 +149,9 @@
   <data name="msg_select_all" xml:space="preserve">
     <value>全选 / 取消全选</value>
   </data>
+  <data name="hint_search" xml:space="preserve">
+    <value>搜索文件...</value>
+  </data>
   <data name="msg_delete_success" xml:space="preserve">
     <value>文件删除成功。</value>
   </data>

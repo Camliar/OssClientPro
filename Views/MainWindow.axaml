@@ -92,34 +92,49 @@
                 <Grid RowDefinitions="Auto,*,Auto">
 
                     <!-- File toolbar -->
-                    <StackPanel Grid.Row="0"
-                                Orientation="Horizontal"
-                                Margin="8,6,0,4"
-                                Spacing="6">
-                        <!-- Select-all checkbox -->
-                        <CheckBox IsChecked="{Binding FileList.IsAllSelected}"
+                    <Grid Grid.Row="0"
+                          ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*"
+                          Margin="8,6,0,4">
+                        <CheckBox Grid.Column="0"
+                                  IsChecked="{Binding FileList.IsAllSelected}"
                                   Command="{Binding FileList.ToggleSelectAllCommand}"
                                   IsEnabled="{Binding !FileList.IsFileOperationBusy}"
                                   VerticalAlignment="Center"
+                                  Margin="0,0,6,0"
                                   ToolTip.Tip="{Binding LanguageService[msg_select_all]}" />
-                        <Button Content="{Binding LanguageService[btn_upload]}"
+                        <Button Grid.Column="1"
+                                Content="{Binding LanguageService[btn_upload]}"
                                 Command="{Binding FileList.UploadCommand}"
-                                IsEnabled="{Binding !FileList.IsFileOperationBusy}" />
-                        <Button Content="{Binding LanguageService[btn_download]}"
+                                IsEnabled="{Binding !FileList.IsFileOperationBusy}"
+                                Margin="0,0,4,0" />
+                        <Button Grid.Column="2"
+                                Content="{Binding LanguageService[btn_download]}"
                                 Command="{Binding FileList.DownloadCommand}"
-                                IsEnabled="{Binding !FileList.IsFileOperationBusy}" />
-                        <Button Content="{Binding LanguageService[btn_delete]}"
+                                IsEnabled="{Binding !FileList.IsFileOperationBusy}"
+                                Margin="0,0,4,0" />
+                        <Button Grid.Column="3"
+                                Content="{Binding LanguageService[btn_delete]}"
                                 Command="{Binding FileList.DeleteCommand}"
-                                IsEnabled="{Binding !FileList.IsFileOperationBusy}" />
-                        <Button Content="{Binding LanguageService[btn_generate_url]}"
+                                IsEnabled="{Binding !FileList.IsFileOperationBusy}"
+                                Margin="0,0,4,0" />
+                        <Button Grid.Column="4"
+                                Content="{Binding LanguageService[btn_generate_url]}"
                                 Command="{Binding FileList.GenerateSignedUrlCommand}"
-                                IsEnabled="{Binding !FileList.IsFileOperationBusy}" />
-                        <!-- Selected count indicator -->
-                        <TextBlock Text="{Binding FileList.SelectedCount, StringFormat='{}Checked: {0}'}"
-                                   VerticalAlignment="Center"
-                                   Margin="12,0,0,0"
-                                   Foreground="Gray" />
-                    </StackPanel>
+                                IsEnabled="{Binding !FileList.IsFileOperationBusy}"
+                                Margin="0,0,12,0" />
+                        <Grid Grid.Column="5" VerticalAlignment="Center">
+                            <TextBox Text="{Binding FileList.SearchText}"
+                                     PlaceholderText="{Binding LanguageService[hint_search]}"
+                                     MinWidth="120"
+                                     Padding="6,4,28,4" />
+                            <TextBlock Text="🔍"
+                                       FontSize="14"
+                                       HorizontalAlignment="Right"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,0"
+                                       Opacity="0.5" />
+                        </Grid>
+                    </Grid>
 
                     <!-- File data grid: headers are set in code-behind because
                          DataGridColumn does not inherit DataContext -->
@@ -128,17 +143,26 @@
                               ItemsSource="{Binding FileList.Files}"
                               SelectedItem="{Binding FileList.SelectedFile}"
                               AutoGenerateColumns="False"
-                              IsReadOnly="True"
                               Margin="8,4">
                         <DataGrid.Columns>
-                            <DataGridCheckBoxColumn Binding="{Binding IsSelected, Mode=TwoWay}"
-                                                    Width="40" />
+                            <DataGridTemplateColumn Width="40">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Binding="{Binding Name}"
-                                                Width="*" />
+                                                Width="*"
+                                                IsReadOnly="True" />
                             <DataGridTextColumn Binding="{Binding SizeDisplay}"
-                                                Width="120" />
+                                                Width="120"
+                                                IsReadOnly="True" />
                             <DataGridTextColumn Binding="{Binding LastModifiedDisplay}"
-                                                Width="180" />
+                                                Width="180"
+                                                IsReadOnly="True" />
                         </DataGrid.Columns>
                     </DataGrid>
 
@@ -229,14 +253,32 @@
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                 BorderBrush="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
                 BorderThickness="0,1,0,0">
-            <Grid ColumnDefinitions="*,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
                 <TextBlock Grid.Column="0"
                            Text="{Binding StatusMessage}"
                            VerticalAlignment="Center" />
-                <!-- Overall progress -->
-                <StackPanel Grid.Column="1"
+                <TextBlock Grid.Column="1"
+                           VerticalAlignment="Center"
+                           Margin="8,0,0,0"
+                           Foreground="Gray">
+                    <Run Text="{Binding FileList.SelectedCount}"/><Run Text=" checked"/>
+                </TextBlock>
+                <TextBlock Grid.Column="2"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,0"
+                           Foreground="Gray">
+                    <Run Text="{Binding FileList.TotalCount}"/><Run Text=" files"/>
+                </TextBlock>
+                <TextBlock Grid.Column="3"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,0"
+                           Foreground="Gray">
+                    <Run Text="Refreshed:"/><Run Text="{Binding FileList.LastRefreshTime}"/>
+                </TextBlock>
+                <StackPanel Grid.Column="4"
                             Orientation="Horizontal"
                             Spacing="8"
+                            Margin="12,0,0,0"
                             IsVisible="{Binding IsProgressVisible}">
                     <ProgressBar Value="{Binding ProgressValue}"
                                  Minimum="0" Maximum="100"

@@ -20,6 +20,8 @@ public partial class FileListViewModel : ViewModelBase
     public Window? MainWindow { get; set; }
 
     public ObservableCollection<string> Buckets { get; } = [];
+
+    /// <summary>Filtered files shown in the DataGrid (after search).</summary>
     public ObservableCollection<OssObjectItem> Files { get; } = [];
 
     [ObservableProperty]
@@ -37,19 +39,30 @@ public partial class FileListViewModel : ViewModelBase
     [ObservableProperty]
     public partial bool IsFileOperationBusy { get; set; }
 
-    /// <summary>
-    /// Whether all visible items are currently checked.
-    /// </summary>
     [ObservableProperty]
     public partial bool IsAllSelected { get; set; }
 
-    /// <summary>
-    /// Number of currently checked items.
-    /// </summary>
     [ObservableProperty]
     public partial int SelectedCount { get; set; }
 
+    // ─── Status bar stats ───
+
+    /// <summary>Total objects loaded from OSS (before search filter).</summary>
+    [ObservableProperty]
+    public partial int TotalCount { get; set; }
+
+    /// <summary>Timestamp of the last successful refresh.</summary>
+    [ObservableProperty]
+    public partial string LastRefreshTime { get; set; } = string.Empty;
+
+    // ─── Search ───
+
+    /// <summary>Search filter text. Filters files by name/key as you type.</summary>
+    [ObservableProperty]
+    public partial string SearchText { get; set; } = string.Empty;
+
     private string _basePrefix = string.Empty;
+    private readonly List<OssObjectItem> _allFiles = [];
 
     public FileListViewModel() : this(new OssService(), null!) { }
 
@@ -75,6 +88,11 @@ public partial class FileListViewModel : ViewModelBase
             _ = LoadFilesAsync();
     }
 
+    partial void OnSearchTextChanged(string value)
+    {
+        ApplySearchFilter();
+    }
+
     // ──────────────────────── Load ────────────────────────
 
     [RelayCommand]
@@ -91,7 +109,7 @@ public partial class FileListViewModel : ViewModelBase
             App.Log.Info($"ListObjects: bucket={SelectedBucket}, prefix={prefix ?? "(root)"}");
             var objects = await _ossService.ListObjectsAsync(SelectedBucket, prefix);
 
-            Files.Clear();
+            _allFiles.Clear();
             foreach (var obj in objects)
             {
                 var displayKey = obj.Key;
@@ -101,12 +119,15 @@ public partial class FileListViewModel : ViewModelBase
                 obj.SizeDisplay = _main.LanguageService.FormatFileSize(obj.Size);
                 obj.LastModifiedDisplay = _main.LanguageService.FormatDateTime(obj.LastModified);
                 obj.IsSelected = false;
-                Files.Add(obj);
+                _allFiles.Add(obj);
             }
 
+            TotalCount = _allFiles.Count;
+            LastRefreshTime = DateTime.Now.ToString("HH:mm:ss");
+            ApplySearchFilter();
             RefreshSelectionState();
 
-            _main.StatusMessage = Files.Count > 0
+            _main.StatusMessage = _allFiles.Count > 0
                 ? string.Empty
                 : _main.LanguageService["msg_no_files"];
         }
@@ -121,11 +142,26 @@ public partial class FileListViewModel : ViewModelBase
         }
     }
 
-    // ──────────────────────── Select-All toggle ────────────────────────
+    // ──────────────────────── Search filter ────────────────────────
 
-    /// <summary>
-    /// Toggles all checkboxes on/off. Called from the header checkbox in the view.
-    /// </summary>
+    private void ApplySearchFilter()
+    {
+        var q = SearchText?.Trim() ?? "";
+        Files.Clear();
+
+        foreach (var f in _allFiles)
+        {
+            if (q.Length == 0 ||
+                f.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                f.Key.Contains(q, StringComparison.OrdinalIgnoreCase))
+            {
+                Files.Add(f);
+            }
+        }
+    }
+
+    // ──────────────────────── Select-All ────────────────────────
+
     [RelayCommand]
     private void ToggleSelectAll()
     {
@@ -135,10 +171,6 @@ public partial class FileListViewModel : ViewModelBase
         RefreshSelectionState();
     }
 
-    /// <summary>
-    /// Recomputes <see cref="SelectedCount"/> and <see cref="IsAllSelected"/>
-    /// from the current state of <see cref="Files"/>.
-    /// </summary>
     private void RefreshSelectionState()
     {
         var count = Files.Count(f => f.IsSelected);
@@ -261,7 +293,6 @@ public partial class FileListViewModel : ViewModelBase
     [RelayCommand]
     private async Task DeleteAsync()
     {
-        // Get all checked items (or the single selected row if nothing is checked)
         var toDelete = Files.Where(f => f.IsSelected).ToList();
         if (toDelete.Count == 0 && SelectedFile != null)
             toDelete = [SelectedFile];
@@ -272,7 +303,6 @@ public partial class FileListViewModel : ViewModelBase
             return;
         }
 
-        // Confirmation
         if (ConfirmHandler != null)
         {
             var msg = toDelete.Count == 1

@@ -98,6 +98,19 @@ public partial class MainViewModel : ViewModelBase
     /// <summary>
     /// Navigates to the settings view.
     /// </summary>
+    /// <summary>
+    /// Called after initialization. If a valid config exists, auto-connect
+    /// and skip the settings page. Otherwise show settings for first-time setup.
+    /// </summary>
+    public async Task StartupAsync()
+    {
+        var config = await _configService.LoadConfigAsync();
+        if (config.IsValid)
+        {
+            await ConnectAsync();
+        }
+    }
+
     public void NavigateToSettings()
     {
         ShowSettings = true;

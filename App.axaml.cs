@@ -67,10 +67,19 @@ public partial class App : Application
 
         var mainViewModel = new MainViewModel(configService, ossService, _languageService);
         mainViewModel.Settings.LoadConfig(config);
-        Log.Info("MainViewModel created, config loaded");
+
+        // If valid config exists, auto-connect → skip settings page.
+        // If config is invalid/empty, stay on settings for first-time setup.
+        mainViewModel.ShowSettings = !config.IsValid;
+        mainViewModel.ShowMainContent = config.IsValid;
+        Log.Info($"MainViewModel created, config valid={config.IsValid}");
 
         var mainWindow = new MainWindow { DataContext = mainViewModel };
         Log.Info("MainWindow created");
+
+        // Auto-connect in background (won't block UI)
+        if (config.IsValid)
+            _ = mainViewModel.StartupAsync();
 
         mainViewModel.FileList.ConfirmHandler = async (title, message) =>
         {
@@ -106,14 +115,27 @@ public partial class App : Application
 
         var confirmed = false;
 
-        var panel = new StackPanel { Margin = new Thickness(20), Spacing = 16 };
-        panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap });
+        var grid = new Grid
+        {
+            Margin = new Thickness(20),
+            RowDefinitions = new RowDefinitions("*,Auto")
+        };
+
+        var msgBlock = new TextBlock
+        {
+            Text = message,
+            TextWrapping = TextWrapping.Wrap,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetRow(msgBlock, 0);
+        grid.Children.Add(msgBlock);
 
         var buttonPanel = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right,
-            Spacing = 8
+            Spacing = 8,
+            Margin = new Thickness(0, 16, 0, 0)
         };
 
         var cancelBtn = new Button { Content = _languageService?["btn_cancel"] ?? "Cancel" };
@@ -129,9 +151,10 @@ public partial class App : Application
 
         buttonPanel.Children.Add(cancelBtn);
         buttonPanel.Children.Add(confirmBtn);
-        panel.Children.Add(buttonPanel);
+        Grid.SetRow(buttonPanel, 1);
+        grid.Children.Add(buttonPanel);
 
-        dialog.Content = panel;
+        dialog.Content = grid;
         await dialog.ShowDialog(owner);
 
         return confirmed;

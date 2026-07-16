@@ -149,6 +149,9 @@
   <data name="msg_select_all" xml:space="preserve">
     <value>Select / Deselect All</value>
   </data>
+  <data name="hint_search" xml:space="preserve">
+    <value>Search files...</value>
+  </data>
   <data name="msg_delete_success" xml:space="preserve">
     <value>File deleted successfully.</value>
   </data>
