@@ -62,4 +62,60 @@
     <Delete Files="@(PdbsToDelete)" />
     <Message Text="Stripped PDB files from publish output" Importance="High" />
   </Target>
+
+  <!-- macOS: create .app bundle with icon after publish -->
+  <Target Name="CreateMacAppBundle" AfterTargets="Publish"
+          Condition="$([MSBuild]::IsOSPlatform('OSX')) Or '$(RuntimeIdentifier)' == 'osx-arm64' Or '$(RuntimeIdentifier)' == 'osx-x64'">
+    <PropertyGroup>
+      <AppBundleDir>$(PublishDir)../OssClientPro.app</AppBundleDir>
+      <MacAppContents>$(AppBundleDir)/Contents</MacAppContents>
+      <MacAppMacOS>$(MacAppContents)/MacOS</MacAppMacOS>
+      <MacAppResources>$(MacAppContents)/Resources</MacAppResources>
+    </PropertyGroup>
+
+    <RemoveDir Directories="$(AppBundleDir)" />
+    <MakeDir Directories="$(MacAppMacOS);$(MacAppResources)" />
+
+    <!-- Copy the native binary -->
+    <Copy SourceFiles="$(PublishDir)OssClientPro" DestinationFolder="$(MacAppMacOS)" />
+
+    <!-- Copy native dependencies -->
+    <ItemGroup>
+      <MacNativeLibs Include="$(PublishDir)*.dylib" />
+    </ItemGroup>
+    <Copy SourceFiles="@(MacNativeLibs)" DestinationFolder="$(MacAppMacOS)" Condition="Exists('@(MacNativeLibs)')" SkipUnchangedFiles="true" />
+
+    <!-- Copy Assets -->
+    <Copy SourceFiles="$(PublishDir)Assets\Languages\**\*.*" DestinationFolder="$(MacAppResources)/Assets/Languages/%(RecursiveDir)" Condition="Exists('$(PublishDir)Assets')" />
+
+    <!-- Generate Info.plist -->
+    <WriteLinesToFile File="$(MacAppContents)/Info.plist"
+                      Lines="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;!DOCTYPE plist PUBLIC &quot;-//Apple//DTD PLIST 1.0//EN&quot; &quot;http://www.apple.com/DTDs/PropertyList-1.0.dtd&quot;&gt;
+&lt;plist version=&quot;1.0&quot;&gt;
+&lt;dict&gt;
+    &lt;key&gt;CFBundleName&lt;/key&gt;
+    &lt;string&gt;OssClientPro&lt;/string&gt;
+    &lt;key&gt;CFBundleDisplayName&lt;/key&gt;
+    &lt;string&gt;OSS Client Pro&lt;/string&gt;
+    &lt;key&gt;CFBundleExecutable&lt;/key&gt;
+    &lt;string&gt;OssClientPro&lt;/string&gt;
+    &lt;key&gt;CFBundleIdentifier&lt;/key&gt;
+    &lt;string&gt;com.camliar.ossclientpro&lt;/string&gt;
+    &lt;key&gt;CFBundleVersion&lt;/key&gt;
+    &lt;string&gt;1.0.0&lt;/string&gt;
+    &lt;key&gt;CFBundleShortVersionString&lt;/key&gt;
+    &lt;string&gt;1.0&lt;/string&gt;
+    &lt;key&gt;CFBundlePackageType&lt;/key&gt;
+    &lt;string&gt;APPL&lt;/string&gt;
+    &lt;key&gt;CFBundleIconFile&lt;/key&gt;
+    &lt;string&gt;AppIcon&lt;/string&gt;
+    &lt;key&gt;NSHighResolutionCapable&lt;/key&gt;
+    &lt;true/&gt;
+&lt;/dict&gt;
+&lt;/plist&gt;"
+                      Overwrite="true" />
+
+    <Message Text="Created macOS .app bundle at $(AppBundleDir)" Importance="High" />
+  </Target>
 </Project>
