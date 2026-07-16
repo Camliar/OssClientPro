@@ -371,4 +371,82 @@ public partial class FileListViewModel : ViewModelBase
             _main.StatusMessage = OssExceptionHelper.GetFriendlyMessage(ex, _main.LanguageService);
         }
     }
+
+    // ──────────────────────── Preview ────────────────────────
+
+    /// <summary>
+    /// Preview the file passed from the row-level button (keeps toolbar button working too).
+    /// </summary>
+    [RelayCommand]
+    private async Task PreviewFileAsync(OssObjectItem? file)
+    {
+        if (file == null) return;
+        await DoPreviewAsync(file);
+    }
+
+    [RelayCommand]
+    private async Task PreviewAsync()
+    {
+        if (SelectedFile == null)
+        {
+            _main.StatusMessage = _main.LanguageService["msg_select_file"];
+            return;
+        }
+        await DoPreviewAsync(SelectedFile);
+    }
+
+    private async Task DoPreviewAsync(OssObjectItem file)
+    {
+        try
+        {
+            IsFileOperationBusy = true;
+            _main.StatusMessage = _main.LanguageService["msg_preview_loading"];
+
+            var ext = Path.GetExtension(file.Name).ToLowerInvariant();
+            var isImage = ext is ".png" or ".jpg" or ".jpeg" or ".gif" or ".bmp" or ".webp" or ".ico";
+            var isText = ext is ".txt" or ".json" or ".xml" or ".md" or ".csv" or ".log"
+                or ".cs" or ".py" or ".js" or ".ts" or ".html" or ".css"
+                or ".yaml" or ".yml" or ".ini" or ".cfg" or ".sh" or ".bat";
+
+            var tmpPath = Path.Combine(Path.GetTempPath(), $"oss_preview_{Guid.NewGuid():N}{ext}");
+            await _ossService.DownloadFileAsync(SelectedBucket!, file.Key, tmpPath);
+
+            if (isImage)
+            {
+                var win = new Views.PreviewWindow(tmpPath, file.Name, isImage: true);
+                if (MainWindow != null) await win.ShowDialog(MainWindow);
+            }
+            else if (isText)
+            {
+                var text = await File.ReadAllTextAsync(tmpPath);
+                if (text.Length > 500_000)
+                    text = text[..500_000] + "\n\n... [truncated]";
+                var win = new Views.PreviewWindow(text, file.Name, isImage: false);
+                if (MainWindow != null) await win.ShowDialog(MainWindow);
+            }
+            else
+            {
+                var info = $"File: {file.Name}\n" +
+                           $"Size: {file.SizeDisplay}\n" +
+                           $"Type: {ext.TrimStart('.')?.ToUpper() ?? "Unknown"}\n" +
+                           $"Modified: {file.LastModifiedDisplay}\n\n" +
+                           $"{_main.LanguageService["msg_preview_unsupported"]}";
+                var win = new Views.PreviewWindow(info, file.Name, isImage: false);
+                if (MainWindow != null) await win.ShowDialog(MainWindow);
+            }
+
+            try { File.Delete(tmpPath); } catch { }
+
+            _main.StatusMessage = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            App.Log.Error("FileList operation failed", ex);
+            _main.StatusMessage = OssExceptionHelper.GetFriendlyMessage(ex, _main.LanguageService);
+        }
+        finally
+        {
+            IsFileOperationBusy = false;
+        }
+    }
 }

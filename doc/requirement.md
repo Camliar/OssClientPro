@@ -31,6 +31,7 @@ OSS SDK：自研 OssHttpClient（直接调 REST API，HMAC-SHA1 签名 + XDocume
 下载文件：选中文件下载至本地，显示下载进度。
 批量删除：复选框勾选多个文件 + 全选/取消全选，二次确认后批量删除。
 搜索过滤：按文件名实时搜索，搜索框带 🔍 图标，占满工具栏剩余宽度。
+文件预览：点击行尾 👁 图标或工具栏 Preview 按钮，弹窗预览文件内容（支持图片、文本）。不支持的文件类型显示文件信息。
 生成签名 URL：为私有文件生成带时效的预签名下载链接，自动复制到剪贴板。
 状态栏：显示已选数量、文件总数、上次刷新时间。
 
@@ -78,7 +79,9 @@ OssClientPro/
 │   └── FileListViewModel.cs       # 含搜索、批量选择、状态栏统计
 ├── Views/
 │   ├── MainWindow.axaml            # 含 DataGrid + 搜索框 + 状态栏
-│   └── MainWindow.axaml.cs
+│   ├── MainWindow.axaml.cs
+│   ├── PreviewWindow.axaml         # 文件预览弹窗
+│   └── PreviewWindow.axaml.cs
 ├── App.axaml / Program.cs          # 启动 + 全局崩溃处理
 ├── README.md                       # 英文文档
 └── README.zh-CN.md                 # 中文文档

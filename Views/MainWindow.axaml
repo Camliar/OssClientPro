@@ -93,7 +93,7 @@
 
                     <!-- File toolbar -->
                     <Grid Grid.Row="0"
-                          ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*"
+                          ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*"
                           Margin="8,6,0,4">
                         <CheckBox Grid.Column="0"
                                   IsChecked="{Binding FileList.IsAllSelected}"
@@ -121,8 +121,13 @@
                                 Content="{Binding LanguageService[btn_generate_url]}"
                                 Command="{Binding FileList.GenerateSignedUrlCommand}"
                                 IsEnabled="{Binding !FileList.IsFileOperationBusy}"
+                                Margin="0,0,4,0" />
+                        <Button Grid.Column="5"
+                                Content="{Binding LanguageService[btn_preview]}"
+                                Command="{Binding FileList.PreviewCommand}"
+                                IsEnabled="{Binding !FileList.IsFileOperationBusy}"
                                 Margin="0,0,12,0" />
-                        <Grid Grid.Column="5" VerticalAlignment="Center">
+                        <Grid Grid.Column="6" VerticalAlignment="Center">
                             <TextBox Text="{Binding FileList.SearchText}"
                                      PlaceholderText="{Binding LanguageService[hint_search]}"
                                      MinWidth="120"
@@ -163,6 +168,21 @@
                             <DataGridTextColumn Binding="{Binding LastModifiedDisplay}"
                                                 Width="180"
                                                 IsReadOnly="True" />
+                            <DataGridTemplateColumn Width="40">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="👁"
+                                                FontSize="12"
+                                                Width="30" Height="24"
+                                                Padding="0"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Background="Transparent"
+                                                Command="{Binding DataContext.FileList.PreviewFileCommand, ElementName=FileDataGrid}"
+                                                CommandParameter="{Binding}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>
 

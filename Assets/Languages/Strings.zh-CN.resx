@@ -45,6 +45,9 @@
   <data name="btn_generate_url" xml:space="preserve">
     <value>生成签名链接</value>
   </data>
+  <data name="btn_preview" xml:space="preserve">
+    <value>预览</value>
+  </data>
   <data name="btn_connect" xml:space="preserve">
     <value>连接</value>
   </data>
@@ -166,6 +169,12 @@
   </data>
   <data name="msg_download_failed" xml:space="preserve">
     <value>下载失败。</value>
+  </data>
+  <data name="msg_preview_loading" xml:space="preserve">
+    <value>加载预览中...</value>
+  </data>
+  <data name="msg_preview_unsupported" xml:space="preserve">
+    <value>该文件类型不支持预览。</value>
   </data>
   <data name="msg_config_saved" xml:space="preserve">
     <value>配置保存成功。</value>

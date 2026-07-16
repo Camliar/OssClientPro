@@ -45,6 +45,9 @@
   <data name="btn_generate_url" xml:space="preserve">
     <value>Generate Signed URL</value>
   </data>
+  <data name="btn_preview" xml:space="preserve">
+    <value>Preview</value>
+  </data>
   <data name="btn_connect" xml:space="preserve">
     <value>Connect</value>
   </data>
@@ -166,6 +169,12 @@
   </data>
   <data name="msg_download_failed" xml:space="preserve">
     <value>Download failed.</value>
+  </data>
+  <data name="msg_preview_loading" xml:space="preserve">
+    <value>Loading preview...</value>
+  </data>
+  <data name="msg_preview_unsupported" xml:space="preserve">
+    <value>Preview not available for this file type.</value>
   </data>
   <data name="msg_config_saved" xml:space="preserve">
     <value>Configuration saved successfully.</value>

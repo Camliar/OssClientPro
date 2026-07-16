@@ -1,0 +1,28 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="OssClientPro.Views.PreviewWindow"
+        Width="800" Height="600"
+        MinWidth="400" MinHeight="300"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid RowDefinitions="*,Auto" Margin="12">
+        <!-- Image preview -->
+        <Image x:Name="PreviewImage"
+               Grid.Row="0"
+               Stretch="Uniform"
+               IsVisible="False" />
+
+        <!-- Text preview -->
+        <ScrollViewer Grid.Row="0" x:Name="TextScroll">
+            <SelectableTextBlock x:Name="PreviewText"
+                                  TextWrapping="Wrap"
+                                  FontFamily="Consolas,Courier New,monospace"
+                                  FontSize="13" />
+        </ScrollViewer>
+
+        <!-- Bottom bar -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+            <Button Grid.Column="1" Content="Close" Click="Close_Click" />
+        </Grid>
+    </Grid>
+</Window>
