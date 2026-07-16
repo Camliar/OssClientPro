@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- ==================== App / Window ==================== -->
+  <data name="app_title" xml:space="preserve">
+    <value>OSS Client Pro</value>
+  </data>
+  <data name="app_title_short" xml:space="preserve">
+    <value>OSS Client</value>
+  </data>
+
+  <!-- ==================== Menu ==================== -->
+  <data name="menu_settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="menu_language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+
+  <!-- ==================== Toolbar ==================== -->
+  <data name="btn_upload" xml:space="preserve">
+    <value>Upload</value>
+  </data>
+  <data name="btn_download" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="btn_delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="btn_refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="btn_generate_url" xml:space="preserve">
+    <value>Generate Signed URL</value>
+  </data>
+  <data name="btn_connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="btn_save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="btn_cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+
+  <!-- ==================== Settings ==================== -->
+  <data name="lbl_settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="lbl_endpoint" xml:space="preserve">
+    <value>Endpoint</value>
+  </data>
+  <data name="lbl_access_key_id" xml:space="preserve">
+    <value>Access Key ID</value>
+  </data>
+  <data name="lbl_access_key_secret" xml:space="preserve">
+    <value>Access Key Secret</value>
+  </data>
+  <data name="lbl_region" xml:space="preserve">
+    <value>Region</value>
+  </data>
+  <data name="lbl_language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="lbl_lang_zh_cn" xml:space="preserve">
+    <value>简体中文</value>
+  </data>
+  <data name="lbl_lang_en_us" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="hint_endpoint" xml:space="preserve">
+    <value>e.g. oss-cn-hangzhou.aliyuncs.com</value>
+  </data>
+  <data name="hint_access_key_id" xml:space="preserve">
+    <value>Enter your AccessKey ID</value>
+  </data>
+  <data name="hint_access_key_secret" xml:space="preserve">
+    <value>Enter your AccessKey Secret</value>
+  </data>
+  <data name="hint_region" xml:space="preserve">
+    <value>e.g. cn-hangzhou</value>
+  </data>
+  <data name="lbl_default_bucket" xml:space="preserve">
+    <value>Default Bucket</value>
+  </data>
+  <data name="hint_default_bucket" xml:space="preserve">
+    <value>Auto-select after connect, e.g. my-bucket</value>
+  </data>
+  <data name="lbl_base_prefix" xml:space="preserve">
+    <value>Authorized Path</value>
+  </data>
+  <data name="hint_base_prefix" xml:space="preserve">
+    <value>Optional, e.g. data/ (empty means root)</value>
+  </data>
+
+  <!-- ==================== Bucket List ==================== -->
+  <data name="lbl_buckets" xml:space="preserve">
+    <value>Buckets</value>
+  </data>
+  <data name="msg_no_buckets" xml:space="preserve">
+    <value>No buckets found. Please check your credentials and try again.</value>
+  </data>
+  <data name="msg_connecting" xml:space="preserve">
+    <value>Connecting...</value>
+  </data>
+
+  <!-- ==================== File List ==================== -->
+  <data name="lbl_files" xml:space="preserve">
+    <value>Files</value>
+  </data>
+  <data name="lbl_file_name" xml:space="preserve">
+    <value>File Name</value>
+  </data>
+  <data name="lbl_file_size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="lbl_last_modified" xml:space="preserve">
+    <value>Last Modified</value>
+  </data>
+  <data name="msg_no_files" xml:space="preserve">
+    <value>This bucket is empty.</value>
+  </data>
+  <data name="msg_select_file" xml:space="preserve">
+    <value>Please select a file first.</value>
+  </data>
+
+  <!-- ==================== Messages ==================== -->
+  <data name="msg_delete_confirm" xml:space="preserve">
+    <value>Are you sure you want to delete the selected file?</value>
+  </data>
+  <data name="msg_delete_batch_confirm" xml:space="preserve">
+    <value>Are you sure you want to delete {0} files?</value>
+  </data>
+  <data name="msg_delete_batch_success" xml:space="preserve">
+    <value>{0} files deleted successfully.</value>
+  </data>
+  <data name="msg_select_all" xml:space="preserve">
+    <value>Select / Deselect All</value>
+  </data>
+  <data name="msg_delete_success" xml:space="preserve">
+    <value>File deleted successfully.</value>
+  </data>
+  <data name="msg_upload_success" xml:space="preserve">
+    <value>File uploaded successfully.</value>
+  </data>
+  <data name="msg_upload_failed" xml:space="preserve">
+    <value>Upload failed.</value>
+  </data>
+  <data name="msg_download_success" xml:space="preserve">
+    <value>File downloaded successfully.</value>
+  </data>
+  <data name="msg_download_failed" xml:space="preserve">
+    <value>Download failed.</value>
+  </data>
+  <data name="msg_config_saved" xml:space="preserve">
+    <value>Configuration saved successfully.</value>
+  </data>
+  <data name="msg_enter_credentials" xml:space="preserve">
+    <value>Please enter your OSS credentials in the Settings page.</value>
+  </data>
+  <data name="msg_invalid_config" xml:space="preserve">
+    <value>Invalid configuration. Please check all required fields.</value>
+  </data>
+  <data name="msg_operation_failed" xml:space="preserve">
+    <value>Operation failed. Please try again.</value>
+  </data>
+  <data name="msg_copy_url" xml:space="preserve">
+    <value>Copy URL</value>
+  </data>
+  <data name="msg_url_copied" xml:space="preserve">
+    <value>Signed URL copied to clipboard.</value>
+  </data>
+  <data name="msg_no_bucket_selected" xml:space="preserve">
+    <value>Please select a bucket first.</value>
+  </data>
+  <data name="msg_confirm_title" xml:space="preserve">
+    <value>Confirm</value>
+  </data>
+  <data name="msg_error_title" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="msg_success_title" xml:space="preserve">
+    <value>Success</value>
+  </data>
+  <data name="msg_presigned_url" xml:space="preserve">
+    <value>Signed URL</value>
+  </data>
+
+  <!-- ==================== Progress ==================== -->
+  <data name="msg_uploading" xml:space="preserve">
+    <value>Uploading...</value>
+  </data>
+  <data name="msg_downloading" xml:space="preserve">
+    <value>Downloading...</value>
+  </data>
+
+  <!-- ==================== Sizes ==================== -->
+  <data name="size_bytes" xml:space="preserve">
+    <value>B</value>
+  </data>
+  <data name="size_kb" xml:space="preserve">
+    <value>KB</value>
+  </data>
+  <data name="size_mb" xml:space="preserve">
+    <value>MB</value>
+  </data>
+  <data name="size_gb" xml:space="preserve">
+    <value>GB</value>
+  </data>
+
+  <!-- ==================== OSS Error Messages ==================== -->
+  <data name="msg_oss_access_denied" xml:space="preserve">
+    <value>Access denied. Please check your credentials and bucket permissions.</value>
+  </data>
+  <data name="msg_oss_auth_failure" xml:space="preserve">
+    <value>Authentication failed. Please verify your AccessKey ID and Secret.</value>
+  </data>
+  <data name="msg_oss_no_such_bucket" xml:space="preserve">
+    <value>Bucket not found. Please check the bucket name.</value>
+  </data>
+  <data name="msg_oss_network_error" xml:space="preserve">
+    <value>Network error. Please check your Endpoint and internet connection.</value>
+  </data>
+</root>

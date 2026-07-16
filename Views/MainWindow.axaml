@@ -1,0 +1,249 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:OssClientPro.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1024" d:DesignHeight="680"
+        x:Class="OssClientPro.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="{Binding LanguageService[app_title]}"
+        MinWidth="800"
+        MinHeight="500">
+
+    <Design.DataContext>
+        <vm:MainViewModel />
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- ==================== Top Toolbar ==================== -->
+        <Border Grid.Row="0"
+                Padding="8,6"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                BorderBrush="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" Margin="4,0">
+                <!-- Settings button -->
+                <Button Grid.Column="0"
+                        Content="{Binding LanguageService[menu_settings]}"
+                        Command="{Binding OpenSettingsCommand}"
+                        Margin="0,0,8,0" />
+
+                <!-- Refresh button -->
+                <Button Grid.Column="1"
+                        Content="{Binding LanguageService[btn_refresh]}"
+                        Command="{Binding FileList.LoadFilesCommand}"
+                        IsVisible="{Binding ShowMainContent}"
+                        Margin="0,0,8,0" />
+
+                <!-- Spacer -->
+                <StackPanel Grid.Column="2" />
+
+                <!-- Language dropdown -->
+                <StackPanel Grid.Column="3"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Margin="0,0,8,0">
+                    <TextBlock Text="{Binding LanguageService[menu_language]}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,6,0" />
+                    <ComboBox ItemsSource="{Binding Settings.AvailableLanguages}"
+                              SelectedItem="{Binding Settings.SelectedLanguage}"
+                              MinWidth="100" />
+                </StackPanel>
+
+                <!-- Connect button (visible when not connected) -->
+                <Button Grid.Column="4"
+                        Content="{Binding LanguageService[btn_connect]}"
+                        Command="{Binding FileList.LoadFilesCommand}"
+                        IsVisible="{Binding !IsConnected}" />
+            </Grid>
+        </Border>
+
+        <!-- ==================== Main Content ==================== -->
+        <Grid Grid.Row="1" ColumnDefinitions="240,*" IsVisible="{Binding ShowMainContent}">
+
+            <!-- Left Panel: Bucket List -->
+            <Border Grid.Column="0"
+                    BorderBrush="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                    BorderThickness="0,0,1,0"
+                    Padding="4">
+                <Grid RowDefinitions="Auto,*">
+                    <TextBlock Grid.Row="0"
+                               Text="{Binding LanguageService[lbl_buckets]}"
+                               FontWeight="Bold"
+                               Margin="8,8,0,6" />
+                    <ListBox Grid.Row="1"
+                             ItemsSource="{Binding FileList.Buckets}"
+                             SelectedItem="{Binding FileList.SelectedBucket}"
+                             Margin="4,0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Padding="4,2" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <!-- Right Panel: File List -->
+            <Border Grid.Column="1" Padding="4">
+                <Grid RowDefinitions="Auto,*,Auto">
+
+                    <!-- File toolbar -->
+                    <StackPanel Grid.Row="0"
+                                Orientation="Horizontal"
+                                Margin="8,6,0,4"
+                                Spacing="6">
+                        <!-- Select-all checkbox -->
+                        <CheckBox IsChecked="{Binding FileList.IsAllSelected}"
+                                  Command="{Binding FileList.ToggleSelectAllCommand}"
+                                  IsEnabled="{Binding !FileList.IsFileOperationBusy}"
+                                  VerticalAlignment="Center"
+                                  ToolTip.Tip="{Binding LanguageService[msg_select_all]}" />
+                        <Button Content="{Binding LanguageService[btn_upload]}"
+                                Command="{Binding FileList.UploadCommand}"
+                                IsEnabled="{Binding !FileList.IsFileOperationBusy}" />
+                        <Button Content="{Binding LanguageService[btn_download]}"
+                                Command="{Binding FileList.DownloadCommand}"
+                                IsEnabled="{Binding !FileList.IsFileOperationBusy}" />
+                        <Button Content="{Binding LanguageService[btn_delete]}"
+                                Command="{Binding FileList.DeleteCommand}"
+                                IsEnabled="{Binding !FileList.IsFileOperationBusy}" />
+                        <Button Content="{Binding LanguageService[btn_generate_url]}"
+                                Command="{Binding FileList.GenerateSignedUrlCommand}"
+                                IsEnabled="{Binding !FileList.IsFileOperationBusy}" />
+                        <!-- Selected count indicator -->
+                        <TextBlock Text="{Binding FileList.SelectedCount, StringFormat='{}Checked: {0}'}"
+                                   VerticalAlignment="Center"
+                                   Margin="12,0,0,0"
+                                   Foreground="Gray" />
+                    </StackPanel>
+
+                    <!-- File data grid: headers are set in code-behind because
+                         DataGridColumn does not inherit DataContext -->
+                    <DataGrid x:Name="FileDataGrid"
+                              Grid.Row="1"
+                              ItemsSource="{Binding FileList.Files}"
+                              SelectedItem="{Binding FileList.SelectedFile}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              Margin="8,4">
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Binding="{Binding IsSelected, Mode=TwoWay}"
+                                                    Width="40" />
+                            <DataGridTextColumn Binding="{Binding Name}"
+                                                Width="*" />
+                            <DataGridTextColumn Binding="{Binding SizeDisplay}"
+                                                Width="120" />
+                            <DataGridTextColumn Binding="{Binding LastModifiedDisplay}"
+                                                Width="180" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- File operation progress -->
+                    <StackPanel Grid.Row="2"
+                                Orientation="Horizontal"
+                                Margin="8,4"
+                                IsVisible="{Binding FileList.IsProgressVisible}"
+                                Spacing="8">
+                        <ProgressBar Value="{Binding FileList.ProgressValue}"
+                                     Minimum="0" Maximum="100"
+                                     Width="200" Height="16" />
+                        <TextBlock Text="{Binding FileList.ProgressValue, StringFormat='{}{0:F0}%'}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ==================== Settings Panel ==================== -->
+        <Border Grid.Row="1"
+                Padding="40,20"
+                IsVisible="{Binding ShowSettings}">
+            <ScrollViewer>
+                <StackPanel Spacing="12" MaxWidth="500">
+                    <TextBlock Text="{Binding LanguageService[lbl_settings]}"
+                               FontSize="20" FontWeight="Bold"
+                               Margin="0,0,0,16" />
+
+                    <!-- Endpoint -->
+                    <TextBlock Text="{Binding LanguageService[lbl_endpoint]}" FontWeight="SemiBold" />
+                    <TextBox Text="{Binding Settings.EditEndpoint}"
+                             PlaceholderText="{Binding LanguageService[hint_endpoint]}" />
+
+                    <!-- Access Key ID -->
+                    <TextBlock Text="{Binding LanguageService[lbl_access_key_id]}" FontWeight="SemiBold" />
+                    <TextBox Text="{Binding Settings.EditAccessKeyId}"
+                             PlaceholderText="{Binding LanguageService[hint_access_key_id]}" />
+
+                    <!-- Access Key Secret -->
+                    <TextBlock Text="{Binding LanguageService[lbl_access_key_secret]}" FontWeight="SemiBold" />
+                    <TextBox Text="{Binding Settings.EditAccessKeySecret}"
+                             PasswordChar="*"
+                             PlaceholderText="{Binding LanguageService[hint_access_key_secret]}" />
+
+                    <!-- Region -->
+                    <TextBlock Text="{Binding LanguageService[lbl_region]}" FontWeight="SemiBold" />
+                    <TextBox Text="{Binding Settings.EditRegion}"
+                             PlaceholderText="{Binding LanguageService[hint_region]}" />
+
+                    <!-- Default Bucket -->
+                    <TextBlock Text="{Binding LanguageService[lbl_default_bucket]}" FontWeight="SemiBold" />
+                    <TextBox Text="{Binding Settings.EditDefaultBucket}"
+                             PlaceholderText="{Binding LanguageService[hint_default_bucket]}" />
+
+                    <!-- Base Prefix (Authorized Path) -->
+                    <TextBlock Text="{Binding LanguageService[lbl_base_prefix]}" FontWeight="SemiBold" />
+                    <TextBox Text="{Binding Settings.EditBasePrefix}"
+                             PlaceholderText="{Binding LanguageService[hint_base_prefix]}" />
+
+                    <!-- Language -->
+                    <TextBlock Text="{Binding LanguageService[lbl_language]}" FontWeight="SemiBold" />
+                    <ComboBox ItemsSource="{Binding Settings.AvailableLanguages}"
+                              SelectedItem="{Binding Settings.SelectedLanguage}"
+                              MinWidth="150"
+                              HorizontalAlignment="Left" />
+
+                    <!-- Buttons -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,16,0,0">
+                        <Button Content="{Binding LanguageService[btn_save]}"
+                                Command="{Binding Settings.SaveCommand}" />
+                        <Button Content="{Binding LanguageService[btn_cancel]}"
+                                Command="{Binding Settings.CancelCommand}"
+                                IsVisible="{Binding IsConnected}" />
+                    </StackPanel>
+
+                    <!-- Save feedback message -->
+                    <TextBlock Text="{Binding Settings.SaveMessage}"
+                               IsVisible="{Binding Settings.IsSaveSuccess}"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ==================== Status Bar ==================== -->
+        <Border Grid.Row="2"
+                Padding="8,4"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                BorderBrush="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0"
+                           Text="{Binding StatusMessage}"
+                           VerticalAlignment="Center" />
+                <!-- Overall progress -->
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            IsVisible="{Binding IsProgressVisible}">
+                    <ProgressBar Value="{Binding ProgressValue}"
+                                 Minimum="0" Maximum="100"
+                                 Width="120" Height="12" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+    </Grid>
+</Window>

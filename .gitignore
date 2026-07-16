@@ -1,0 +1,17 @@
+# Build outputs
+bin/
+obj/
+
+# User config — contains AccessKeyId/Secret, DO NOT commit
+config.json
+
+# IDE
+.vs/
+.idea/
+*.user
+*.DotSettings
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- ==================== App / Window ==================== -->
+  <data name="app_title" xml:space="preserve">
+    <value>OSS 客户端专业版</value>
+  </data>
+  <data name="app_title_short" xml:space="preserve">
+    <value>OSS 客户端</value>
+  </data>
+
+  <!-- ==================== Menu ==================== -->
+  <data name="menu_settings" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="menu_language" xml:space="preserve">
+    <value>语言</value>
+  </data>
+
+  <!-- ==================== Toolbar ==================== -->
+  <data name="btn_upload" xml:space="preserve">
+    <value>上传</value>
+  </data>
+  <data name="btn_download" xml:space="preserve">
+    <value>下载</value>
+  </data>
+  <data name="btn_delete" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="btn_refresh" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+  <data name="btn_generate_url" xml:space="preserve">
+    <value>生成签名链接</value>
+  </data>
+  <data name="btn_connect" xml:space="preserve">
+    <value>连接</value>
+  </data>
+  <data name="btn_save" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="btn_cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+
+  <!-- ==================== Settings ==================== -->
+  <data name="lbl_settings" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="lbl_endpoint" xml:space="preserve">
+    <value>访问端点</value>
+  </data>
+  <data name="lbl_access_key_id" xml:space="preserve">
+    <value>AccessKey ID</value>
+  </data>
+  <data name="lbl_access_key_secret" xml:space="preserve">
+    <value>AccessKey Secret</value>
+  </data>
+  <data name="lbl_region" xml:space="preserve">
+    <value>区域</value>
+  </data>
+  <data name="lbl_language" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="lbl_lang_zh_cn" xml:space="preserve">
+    <value>简体中文</value>
+  </data>
+  <data name="lbl_lang_en_us" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="hint_endpoint" xml:space="preserve">
+    <value>例如：oss-cn-hangzhou.aliyuncs.com</value>
+  </data>
+  <data name="hint_access_key_id" xml:space="preserve">
+    <value>请输入 AccessKey ID</value>
+  </data>
+  <data name="hint_access_key_secret" xml:space="preserve">
+    <value>请输入 AccessKey Secret</value>
+  </data>
+  <data name="hint_region" xml:space="preserve">
+    <value>例如：cn-hangzhou</value>
+  </data>
+  <data name="lbl_default_bucket" xml:space="preserve">
+    <value>默认 Bucket</value>
+  </data>
+  <data name="hint_default_bucket" xml:space="preserve">
+    <value>连接后自动选中，如 my-bucket</value>
+  </data>
+  <data name="lbl_base_prefix" xml:space="preserve">
+    <value>授权路径</value>
+  </data>
+  <data name="hint_base_prefix" xml:space="preserve">
+    <value>可选，如 data/（留空表示根目录）</value>
+  </data>
+
+  <!-- ==================== Bucket List ==================== -->
+  <data name="lbl_buckets" xml:space="preserve">
+    <value>存储空间</value>
+  </data>
+  <data name="msg_no_buckets" xml:space="preserve">
+    <value>未找到存储空间。请检查您的凭据后重试。</value>
+  </data>
+  <data name="msg_connecting" xml:space="preserve">
+    <value>连接中...</value>
+  </data>
+
+  <!-- ==================== File List ==================== -->
+  <data name="lbl_files" xml:space="preserve">
+    <value>文件列表</value>
+  </data>
+  <data name="lbl_file_name" xml:space="preserve">
+    <value>文件名</value>
+  </data>
+  <data name="lbl_file_size" xml:space="preserve">
+    <value>大小</value>
+  </data>
+  <data name="lbl_last_modified" xml:space="preserve">
+    <value>最后修改时间</value>
+  </data>
+  <data name="msg_no_files" xml:space="preserve">
+    <value>该存储空间为空。</value>
+  </data>
+  <data name="msg_select_file" xml:space="preserve">
+    <value>请先选择一个文件。</value>
+  </data>
+
+  <!-- ==================== Messages ==================== -->
+  <data name="msg_delete_confirm" xml:space="preserve">
+    <value>确定要删除选中的文件吗？</value>
+  </data>
+  <data name="msg_delete_batch_confirm" xml:space="preserve">
+    <value>确定要删除 {0} 个文件吗？</value>
+  </data>
+  <data name="msg_delete_batch_success" xml:space="preserve">
+    <value>{0} 个文件删除成功。</value>
+  </data>
+  <data name="msg_select_all" xml:space="preserve">
+    <value>全选 / 取消全选</value>
+  </data>
+  <data name="msg_delete_success" xml:space="preserve">
+    <value>文件删除成功。</value>
+  </data>
+  <data name="msg_upload_success" xml:space="preserve">
+    <value>文件上传成功。</value>
+  </data>
+  <data name="msg_upload_failed" xml:space="preserve">
+    <value>上传失败。</value>
+  </data>
+  <data name="msg_download_success" xml:space="preserve">
+    <value>文件下载成功。</value>
+  </data>
+  <data name="msg_download_failed" xml:space="preserve">
+    <value>下载失败。</value>
+  </data>
+  <data name="msg_config_saved" xml:space="preserve">
+    <value>配置保存成功。</value>
+  </data>
+  <data name="msg_enter_credentials" xml:space="preserve">
+    <value>请在设置页面输入您的 OSS 凭据信息。</value>
+  </data>
+  <data name="msg_invalid_config" xml:space="preserve">
+    <value>配置无效，请检查所有必填项。</value>
+  </data>
+  <data name="msg_operation_failed" xml:space="preserve">
+    <value>操作失败，请重试。</value>
+  </data>
+  <data name="msg_copy_url" xml:space="preserve">
+    <value>复制链接</value>
+  </data>
+  <data name="msg_url_copied" xml:space="preserve">
+    <value>签名链接已复制到剪贴板。</value>
+  </data>
+  <data name="msg_no_bucket_selected" xml:space="preserve">
+    <value>请先选择一个存储空间。</value>
+  </data>
+  <data name="msg_confirm_title" xml:space="preserve">
+    <value>确认</value>
+  </data>
+  <data name="msg_error_title" xml:space="preserve">
+    <value>错误</value>
+  </data>
+  <data name="msg_success_title" xml:space="preserve">
+    <value>成功</value>
+  </data>
+  <data name="msg_presigned_url" xml:space="preserve">
+    <value>签名链接</value>
+  </data>
+
+  <!-- ==================== Progress ==================== -->
+  <data name="msg_uploading" xml:space="preserve">
+    <value>正在上传...</value>
+  </data>
+  <data name="msg_downloading" xml:space="preserve">
+    <value>正在下载...</value>
+  </data>
+
+  <!-- ==================== Sizes ==================== -->
+  <data name="size_bytes" xml:space="preserve">
+    <value>B</value>
+  </data>
+  <data name="size_kb" xml:space="preserve">
+    <value>KB</value>
+  </data>
+  <data name="size_mb" xml:space="preserve">
+    <value>MB</value>
+  </data>
+  <data name="size_gb" xml:space="preserve">
+    <value>GB</value>
+  </data>
+
+  <!-- ==================== OSS Error Messages ==================== -->
+  <data name="msg_oss_access_denied" xml:space="preserve">
+    <value>访问被拒绝。请检查您的凭据和 Bucket 权限。</value>
+  </data>
+  <data name="msg_oss_auth_failure" xml:space="preserve">
+    <value>身份验证失败。请检查 AccessKey ID 和 Secret 是否正确。</value>
+  </data>
+  <data name="msg_oss_no_such_bucket" xml:space="preserve">
+    <value>Bucket 不存在。请检查 Bucket 名称。</value>
+  </data>
+  <data name="msg_oss_network_error" xml:space="preserve">
+    <value>网络错误。请检查 Endpoint 地址和网络连接。</value>
+  </data>
+</root>

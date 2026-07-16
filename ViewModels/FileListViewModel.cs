@@ -1,0 +1,333 @@
+using System.Collections.ObjectModel;
+using Avalonia.Controls;
+using Avalonia.Input.Platform;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using OssClientPro.Helpers;
+using OssClientPro.Models;
+using OssClientPro.Services;
+
+namespace OssClientPro.ViewModels;
+
+public delegate Task<bool> ConfirmHandler(string title, string message);
+
+public partial class FileListViewModel : ViewModelBase
+{
+    private readonly OssService _ossService;
+    private readonly MainViewModel _main;
+
+    public ConfirmHandler? ConfirmHandler { get; set; }
+    public Window? MainWindow { get; set; }
+
+    public ObservableCollection<string> Buckets { get; } = [];
+    public ObservableCollection<OssObjectItem> Files { get; } = [];
+
+    [ObservableProperty]
+    public partial string? SelectedBucket { get; set; }
+
+    [ObservableProperty]
+    public partial OssObjectItem? SelectedFile { get; set; }
+
+    [ObservableProperty]
+    public partial double ProgressValue { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsProgressVisible { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsFileOperationBusy { get; set; }
+
+    /// <summary>
+    /// Whether all visible items are currently checked.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsAllSelected { get; set; }
+
+    /// <summary>
+    /// Number of currently checked items.
+    /// </summary>
+    [ObservableProperty]
+    public partial int SelectedCount { get; set; }
+
+    private string _basePrefix = string.Empty;
+
+    public FileListViewModel() : this(new OssService(), null!) { }
+
+    public FileListViewModel(OssService ossService, MainViewModel main)
+    {
+        _ossService = ossService;
+        _main = main;
+    }
+
+    public void SetBasePrefix(string prefix)
+    {
+        _basePrefix = (prefix ?? string.Empty).Trim();
+        if (_basePrefix.Length > 0 && !_basePrefix.EndsWith('/'))
+            _basePrefix += '/';
+
+        if (!string.IsNullOrEmpty(SelectedBucket))
+            _ = LoadFilesAsync();
+    }
+
+    partial void OnSelectedBucketChanged(string? value)
+    {
+        if (!string.IsNullOrEmpty(value))
+            _ = LoadFilesAsync();
+    }
+
+    // ──────────────────────── Load ────────────────────────
+
+    [RelayCommand]
+    private async Task LoadFilesAsync()
+    {
+        if (string.IsNullOrEmpty(SelectedBucket)) return;
+
+        try
+        {
+            IsFileOperationBusy = true;
+            _main.StatusMessage = _main.LanguageService["msg_connecting"];
+
+            var prefix = _basePrefix.Length > 0 ? _basePrefix : null;
+            var objects = await _ossService.ListObjectsAsync(SelectedBucket, prefix);
+
+            Files.Clear();
+            foreach (var obj in objects)
+            {
+                var displayKey = obj.Key;
+                if (_basePrefix.Length > 0 && displayKey.StartsWith(_basePrefix, StringComparison.Ordinal))
+                    displayKey = displayKey[_basePrefix.Length..];
+                obj.Name = string.IsNullOrEmpty(displayKey) ? obj.Key : displayKey;
+                obj.SizeDisplay = _main.LanguageService.FormatFileSize(obj.Size);
+                obj.LastModifiedDisplay = _main.LanguageService.FormatDateTime(obj.LastModified);
+                obj.IsSelected = false;
+                Files.Add(obj);
+            }
+
+            RefreshSelectionState();
+
+            _main.StatusMessage = Files.Count > 0
+                ? string.Empty
+                : _main.LanguageService["msg_no_files"];
+        }
+        catch (Exception ex)
+        {
+            _main.StatusMessage = OssExceptionHelper.GetFriendlyMessage(ex, _main.LanguageService);
+        }
+        finally
+        {
+            IsFileOperationBusy = false;
+        }
+    }
+
+    // ──────────────────────── Select-All toggle ────────────────────────
+
+    /// <summary>
+    /// Toggles all checkboxes on/off. Called from the header checkbox in the view.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleSelectAll()
+    {
+        var select = Files.Count > 0 && SelectedCount < Files.Count;
+        foreach (var file in Files)
+            file.IsSelected = select;
+        RefreshSelectionState();
+    }
+
+    /// <summary>
+    /// Recomputes <see cref="SelectedCount"/> and <see cref="IsAllSelected"/>
+    /// from the current state of <see cref="Files"/>.
+    /// </summary>
+    private void RefreshSelectionState()
+    {
+        var count = Files.Count(f => f.IsSelected);
+        SelectedCount = count;
+        IsAllSelected = count > 0 && count == Files.Count;
+    }
+
+    // ──────────────────────── Upload ────────────────────────
+
+    [RelayCommand]
+    private async Task UploadAsync()
+    {
+        if (string.IsNullOrEmpty(SelectedBucket))
+        {
+            _main.StatusMessage = _main.LanguageService["msg_no_bucket_selected"];
+            return;
+        }
+
+        try
+        {
+            if (MainWindow == null) return;
+            var window = MainWindow;
+
+            var files = await window.StorageProvider.OpenFilePickerAsync(
+                new Avalonia.Platform.Storage.FilePickerOpenOptions
+                {
+                    Title = _main.LanguageService["btn_upload"],
+                    AllowMultiple = false
+                });
+
+            if (files.Count == 0) return;
+
+            var localPath = files[0].Path.LocalPath;
+            var objectName = _basePrefix + Path.GetFileName(localPath);
+
+            IsFileOperationBusy = true;
+            IsProgressVisible = true;
+            _main.StatusMessage = _main.LanguageService["msg_uploading"];
+
+            var progress = new Progress<double>(value =>
+            {
+                ProgressValue = value;
+                IsProgressVisible = value < 100;
+            });
+
+            await _ossService.UploadFileAsync(SelectedBucket, objectName, localPath, progress);
+
+            _main.StatusMessage = _main.LanguageService["msg_upload_success"];
+            await LoadFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            _main.StatusMessage = OssExceptionHelper.GetFriendlyMessage(ex, _main.LanguageService);
+        }
+        finally
+        {
+            IsFileOperationBusy = false;
+            IsProgressVisible = false;
+        }
+    }
+
+    // ──────────────────────── Download ────────────────────────
+
+    [RelayCommand]
+    private async Task DownloadAsync()
+    {
+        if (SelectedFile == null)
+        {
+            _main.StatusMessage = _main.LanguageService["msg_select_file"];
+            return;
+        }
+
+        try
+        {
+            if (MainWindow == null) return;
+            var window = MainWindow;
+
+            var folder = await window.StorageProvider.OpenFolderPickerAsync(
+                new Avalonia.Platform.Storage.FolderPickerOpenOptions
+                {
+                    Title = _main.LanguageService["btn_download"],
+                    AllowMultiple = false
+                });
+
+            if (folder.Count == 0) return;
+
+            var localPath = Path.Combine(folder[0].Path.LocalPath, SelectedFile.Name);
+
+            IsFileOperationBusy = true;
+            IsProgressVisible = true;
+            _main.StatusMessage = _main.LanguageService["msg_downloading"];
+
+            var progress = new Progress<double>(value =>
+            {
+                ProgressValue = value;
+                IsProgressVisible = value < 100;
+            });
+
+            await _ossService.DownloadFileAsync(SelectedBucket!, SelectedFile.Key, localPath, progress);
+
+            _main.StatusMessage = _main.LanguageService["msg_download_success"];
+        }
+        catch (Exception ex)
+        {
+            _main.StatusMessage = OssExceptionHelper.GetFriendlyMessage(ex, _main.LanguageService);
+        }
+        finally
+        {
+            IsFileOperationBusy = false;
+            IsProgressVisible = false;
+        }
+    }
+
+    // ──────────────────────── Batch Delete ────────────────────────
+
+    [RelayCommand]
+    private async Task DeleteAsync()
+    {
+        // Get all checked items (or the single selected row if nothing is checked)
+        var toDelete = Files.Where(f => f.IsSelected).ToList();
+        if (toDelete.Count == 0 && SelectedFile != null)
+            toDelete = [SelectedFile];
+
+        if (toDelete.Count == 0)
+        {
+            _main.StatusMessage = _main.LanguageService["msg_select_file"];
+            return;
+        }
+
+        // Confirmation
+        if (ConfirmHandler != null)
+        {
+            var msg = toDelete.Count == 1
+                ? _main.LanguageService["msg_delete_confirm"]
+                : string.Format(_main.LanguageService["msg_delete_batch_confirm"], toDelete.Count);
+
+            var confirmed = await ConfirmHandler(
+                _main.LanguageService["msg_confirm_title"], msg);
+            if (!confirmed) return;
+        }
+
+        try
+        {
+            IsFileOperationBusy = true;
+
+            foreach (var file in toDelete)
+            {
+                await _ossService.DeleteFileAsync(SelectedBucket!, file.Key);
+            }
+
+            _main.StatusMessage = toDelete.Count == 1
+                ? _main.LanguageService["msg_delete_success"]
+                : string.Format(_main.LanguageService["msg_delete_batch_success"], toDelete.Count);
+
+            await LoadFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            _main.StatusMessage = OssExceptionHelper.GetFriendlyMessage(ex, _main.LanguageService);
+        }
+        finally
+        {
+            IsFileOperationBusy = false;
+        }
+    }
+
+    // ──────────────────────── Pre-signed URL ────────────────────────
+
+    [RelayCommand]
+    private async Task GenerateSignedUrlAsync()
+    {
+        if (SelectedFile == null)
+        {
+            _main.StatusMessage = _main.LanguageService["msg_select_file"];
+            return;
+        }
+
+        try
+        {
+            var url = await Task.Run(() =>
+                _ossService.GeneratePresignedUrl(SelectedBucket!, SelectedFile.Key));
+
+            var topLevel = TopLevel.GetTopLevel(MainWindow);
+            if (topLevel?.Clipboard != null)
+                await topLevel.Clipboard.SetTextAsync(url);
+
+            _main.StatusMessage = _main.LanguageService["msg_url_copied"];
+        }
+        catch (Exception ex)
+        {
+            _main.StatusMessage = OssExceptionHelper.GetFriendlyMessage(ex, _main.LanguageService);
+        }
+    }
+}
