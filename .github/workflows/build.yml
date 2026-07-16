@@ -1,8 +1,9 @@
-name: Build & Publish
+name: Build & Release
 
 on:
   push:
     branches: [master]
+    tags: ['v*']
   workflow_dispatch:
 
 jobs:
@@ -19,11 +20,21 @@ jobs:
       - name: Publish Windows x64
         run: dotnet publish -c Release -r win-x64
 
-      - name: Upload artifact
+      - name: Create NSIS installer
+        run: |
+          & 'C:\Program Files (x86)\NSIS\makensis.exe' installer\installer.nsi
+
+      - name: Zip portable version
+        run: |
+          Compress-Archive -Path bin/Release/net10.0/win-x64/publish/* -DestinationPath bin/Release/net10.0/win-x64/OssClientPro-win-x64.zip
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: OssClientPro-win-x64
-          path: bin/Release/net10.0/win-x64/publish/
+          path: |
+            bin/Release/net10.0/win-x64/OssClientPro-Setup.exe
+            bin/Release/net10.0/win-x64/OssClientPro-win-x64.zip
 
   # ─────────────────────── macOS arm64 + x64 ───────────────────────
   macos:
@@ -35,74 +46,88 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      # Generate .icns icon from .ico for macOS .app bundle
       - name: Generate macOS .icns icon
         run: |
           mkdir -p AppIcon.iconset
-          # Use Python to extract the largest PNG from the ICO file
           python3 -c "
-          import struct, io
+          import struct
           with open('Assets/avalonia-logo.ico', 'rb') as f:
               data = f.read()
-          # ICO header: reserved(2) + type(2) + count(2)
           count = struct.unpack_from('<H', data, 4)[0]
-          best = None
-          best_size = 0
+          best, best_size = None, 0
           for i in range(count):
-              w = data[6 + i*16] or 256
-              h = data[7 + i*16] or 256
-              size = struct.unpack_from('<I', data, 6 + i*16 + 8)[0]
-              offset = struct.unpack_from('<I', data, 6 + i*16 + 12)[0]
+              w, h = data[6+i*16] or 256, data[7+i*16] or 256
+              size = struct.unpack_from('<I', data, 6+i*16+8)[0]
+              offset = struct.unpack_from('<I', data, 6+i*16+12)[0]
               if w*h > best_size:
                   best_size = w*h
                   best = data[offset:offset+size]
-          # Write the largest PNG
           with open('AppIcon.iconset/icon_512x512.png', 'wb') as f:
               f.write(best)
           "
-          # Resize to required sizes
-          sips -z 16 16   AppIcon.iconset/icon_512x512.png --out AppIcon.iconset/icon_16x16.png
-          sips -z 32 32   AppIcon.iconset/icon_512x512.png --out AppIcon.iconset/icon_32x32.png
-          sips -z 128 128 AppIcon.iconset/icon_512x512.png --out AppIcon.iconset/icon_128x128.png
-          sips -z 256 256 AppIcon.iconset/icon_512x512.png --out AppIcon.iconset/icon_256x256.png
+          for s in 16 32 128 256; do
+            sips -z $s $s AppIcon.iconset/icon_512x512.png --out AppIcon.iconset/icon_${s}x${s}.png
+          done
           sips -z 512 512 AppIcon.iconset/icon_512x512.png --out AppIcon.iconset/icon_512x512@2x.png
-          # Also create @2x variants
           cp AppIcon.iconset/icon_32x32.png AppIcon.iconset/icon_16x16@2x.png
           cp AppIcon.iconset/icon_256x256.png AppIcon.iconset/icon_128x128@2x.png
           cp AppIcon.iconset/icon_512x512.png AppIcon.iconset/icon_256x256@2x.png
-          # Generate .icns
           iconutil -c icns AppIcon.iconset -o AppIcon.icns
 
-      - name: Publish macOS arm64 (Apple Silicon)
+      - name: Publish macOS arm64
         run: |
           dotnet publish -c Release -r osx-arm64
           cp AppIcon.icns bin/Release/net10.0/osx-arm64/OssClientPro.app/Contents/Resources/
 
-      - name: Publish macOS x64 (Intel)
+      - name: Publish macOS x64
         run: |
           dotnet publish -c Release -r osx-x64
           cp AppIcon.icns bin/Release/net10.0/osx-x64/OssClientPro.app/Contents/Resources/
 
-      - name: Upload arm64 artifact
+      - name: Create .dmg for arm64
+        run: |
+          hdiutil create -volname OssClientPro -srcfolder bin/Release/net10.0/osx-arm64/OssClientPro.app \
+            -ov -format UDZO bin/Release/net10.0/osx-arm64/OssClientPro-arm64.dmg
+
+      - name: Create .dmg for x64
+        run: |
+          hdiutil create -volname OssClientPro -srcfolder bin/Release/net10.0/osx-x64/OssClientPro.app \
+            -ov -format UDZO bin/Release/net10.0/osx-x64/OssClientPro-x64.dmg
+
+      - name: Upload arm64 artifacts
         uses: actions/upload-artifact@v4
         with:
           name: OssClientPro-osx-arm64
-          path: bin/Release/net10.0/osx-arm64/publish/
+          path: |
+            bin/Release/net10.0/osx-arm64/OssClientPro.app/
+            bin/Release/net10.0/osx-arm64/OssClientPro-arm64.dmg
+            bin/Release/net10.0/osx-arm64/publish/
 
-      - name: Upload arm64 .app bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: OssClientPro-osx-arm64-app
-          path: bin/Release/net10.0/osx-arm64/OssClientPro.app/
-
-      - name: Upload x64 artifact
+      - name: Upload x64 artifacts
         uses: actions/upload-artifact@v4
         with:
           name: OssClientPro-osx-x64
-          path: bin/Release/net10.0/osx-x64/publish/
+          path: |
+            bin/Release/net10.0/osx-x64/OssClientPro.app/
+            bin/Release/net10.0/osx-x64/OssClientPro-x64.dmg
+            bin/Release/net10.0/osx-x64/publish/
 
-      - name: Upload x64 .app bundle
-        uses: actions/upload-artifact@v4
+  # ─────────────────────── GitHub Release (on tag only) ───────────────────────
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: OssClientPro-osx-x64-app
-          path: bin/Release/net10.0/osx-x64/OssClientPro.app/
+          name: ${{ github.ref_name }}
+          files: |
+            OssClientPro-win-x64/*
+            OssClientPro-osx-arm64/*
+            OssClientPro-osx-x64/*
+          generate_release_notes: true
