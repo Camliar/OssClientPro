@@ -47,7 +47,16 @@ public partial class App : Application
         Log.InitSession();
         Log.Info("=== InitializeApp START ===");
 
+        // Resolve Assets/Languages path. On macOS .app bundles the binary
+        // sits in Contents/MacOS/ while assets are in Contents/Resources/.
         var languagesPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Languages");
+        if (!Directory.Exists(languagesPath))
+        {
+            var altPath = System.IO.Path.GetFullPath(
+                System.IO.Path.Combine(AppContext.BaseDirectory, "..", "Resources", "Assets", "Languages"));
+            if (Directory.Exists(altPath))
+                languagesPath = altPath;
+        }
         Log.Info($"Languages path: {languagesPath}");
 
         var configService = new ConfigService();
