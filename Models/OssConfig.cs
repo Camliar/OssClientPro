@@ -41,6 +41,13 @@ public class OssConfig
     public string BasePrefix { get; set; } = string.Empty;
 
     /// <summary>
+    /// Time display format: "auto" (follow OS), "12h", or "24h".
+    /// Defaults to "auto".
+    /// </summary>
+    [JsonPropertyName("timeFormat")]
+    public string TimeFormat { get; set; } = "auto";
+
+    /// <summary>
     /// Returns true if all required credential fields are populated.
     /// </summary>
     [JsonIgnore]

@@ -57,6 +57,22 @@ public partial class SettingsViewModel : ViewModelBase
     ];
 
     /// <summary>
+    /// Available time format options for the dropdown.
+    /// </summary>
+    public ObservableCollection<string> AvailableTimeFormats { get; } =
+    [
+        "auto",
+        "12h",
+        "24h"
+    ];
+
+    /// <summary>
+    /// The currently selected time format ("auto", "12h", "24h").
+    /// </summary>
+    [ObservableProperty]
+    public partial string SelectedTimeFormat { get; set; } = "auto";
+
+    /// <summary>
     /// Feedback message shown after save.
     /// </summary>
     [ObservableProperty]
@@ -108,6 +124,8 @@ public partial class SettingsViewModel : ViewModelBase
 
         if (!string.IsNullOrEmpty(config.Language))
             SelectedLanguage = config.Language;
+
+        SelectedTimeFormat = string.IsNullOrEmpty(config.TimeFormat) ? "auto" : config.TimeFormat;
     }
 
     /// <summary>
@@ -133,12 +151,13 @@ public partial class SettingsViewModel : ViewModelBase
             Region = EditRegion.Trim(),
             DefaultBucket = EditDefaultBucket.Trim(),
             BasePrefix = EditBasePrefix.Trim(),
-            Language = SelectedLanguage
+            Language = SelectedLanguage,
+            TimeFormat = SelectedTimeFormat
         };
 
         await _configService.SaveConfigAsync(config);
 
-        App.Log.Info($"Config saved: endpoint={config.Endpoint}, bucket={config.DefaultBucket}, prefix={config.BasePrefix}, lang={config.Language}");
+        App.Log.Info($"Config saved: endpoint={config.Endpoint}, bucket={config.DefaultBucket}, prefix={config.BasePrefix}, lang={config.Language}, timeFormat={config.TimeFormat}");
 
         _main?.LanguageService.SetLanguage(SelectedLanguage);
 
@@ -167,6 +186,23 @@ public partial class SettingsViewModel : ViewModelBase
         if (!string.IsNullOrEmpty(value) && _main != null)
         {
             _main.LanguageService.SetLanguage(value);
+        }
+    }
+
+    /// <summary>
+    /// Handles time format selection change — applies immediately so the user
+    /// sees the updated format in the file list without needing to reconnect.
+    /// </summary>
+    partial void OnSelectedTimeFormatChanged(string value)
+    {
+        if (!string.IsNullOrEmpty(value) && _main != null)
+        {
+            _main.LanguageService.TimeFormat = value;
+            // Re-apply format to already-loaded files
+            foreach (var file in _main.FileList.Files)
+            {
+                file.LastModifiedDisplay = _main.LanguageService.FormatDateTime(file.LastModified);
+            }
         }
     }
 }

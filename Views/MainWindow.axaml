@@ -141,38 +141,54 @@
                         </Grid>
                     </Grid>
 
-                    <!-- File data grid: headers are set in code-behind because
-                         DataGridColumn does not inherit DataContext -->
-                    <DataGrid x:Name="FileDataGrid"
-                              Grid.Row="1"
-                              ItemsSource="{Binding FileList.Files}"
-                              SelectedItem="{Binding FileList.SelectedFile}"
-                              AutoGenerateColumns="False"
-                              CanUserSortColumns="True"
-                              Margin="8,4">
-                        <DataGrid.Columns>
-                            <DataGridTemplateColumn Width="40">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                  HorizontalAlignment="Center"
-                                                  VerticalAlignment="Center" />
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTextColumn Binding="{Binding Name}"
-                                                Width="*"
-                                                IsReadOnly="True" />
-                            <DataGridTextColumn Binding="{Binding SizeDisplay}"
-                                                Width="120"
-                                                IsReadOnly="True"
-                                                SortMemberPath="Size" />
-                            <DataGridTextColumn Binding="{Binding LastModifiedDisplay}"
-                                                Width="180"
-                                                IsReadOnly="True"
-                                                SortMemberPath="LastModified" />
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <!-- File data grid + notification toast overlay -->
+                    <Grid Grid.Row="1" RowDefinitions="*,Auto">
+                        <!-- File data grid: headers are set in code-behind because
+                             DataGridColumn does not inherit DataContext -->
+                        <DataGrid x:Name="FileDataGrid"
+                                  Grid.Row="0"
+                                  ItemsSource="{Binding FileList.Files}"
+                                  SelectedItem="{Binding FileList.SelectedFile}"
+                                  AutoGenerateColumns="False"
+                                  CanUserSortColumns="True"
+                                  Margin="8,4,8,0">
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Width="40">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Binding="{Binding Name}"
+                                                    Width="*"
+                                                    IsReadOnly="True" />
+                                <DataGridTextColumn Binding="{Binding SizeDisplay}"
+                                                    Width="120"
+                                                    IsReadOnly="True"
+                                                    SortMemberPath="Size" />
+                                <DataGridTextColumn Binding="{Binding LastModifiedDisplay}"
+                                                    Width="180"
+                                                    IsReadOnly="True"
+                                                    SortMemberPath="LastModified" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- Notification toast — auto-dismisses after ~2.5s -->
+                        <Border Grid.Row="1"
+                                IsVisible="{Binding FileList.IsNotificationVisible}"
+                                Background="{DynamicResource SystemAccentColor}"
+                                CornerRadius="4"
+                                Padding="12,6"
+                                Margin="8,4"
+                                HorizontalAlignment="Center">
+                            <TextBlock Text="{Binding FileList.NotificationMessage}"
+                                       Foreground="White"
+                                       FontSize="13" />
+                        </Border>
+                    </Grid>
 
                     <!-- File operation progress -->
                     <StackPanel Grid.Row="2"
@@ -235,6 +251,13 @@
                     <TextBlock Text="{Binding LanguageService[lbl_language]}" FontWeight="SemiBold" />
                     <ComboBox ItemsSource="{Binding Settings.AvailableLanguages}"
                               SelectedItem="{Binding Settings.SelectedLanguage}"
+                              MinWidth="150"
+                              HorizontalAlignment="Left" />
+
+                    <!-- Time Format -->
+                    <TextBlock Text="{Binding LanguageService[lbl_time_format]}" FontWeight="SemiBold" />
+                    <ComboBox ItemsSource="{Binding Settings.AvailableTimeFormats}"
+                              SelectedItem="{Binding Settings.SelectedTimeFormat}"
                               MinWidth="150"
                               HorizontalAlignment="Left" />
 

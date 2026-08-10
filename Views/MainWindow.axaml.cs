@@ -89,7 +89,7 @@ public partial class MainWindow : Window
             }
         }
 
-        _rowContextFlyout.ShowAt((Control)sender!);
+        _rowContextFlyout.ShowAt((Control)sender!, true);
     }
 
     /// <summary>
@@ -101,6 +101,7 @@ public partial class MainWindow : Window
     {
         var flyout = new MenuFlyout();
 
+        // ── View / Transfer ──
         // Preview
         var previewItem = new MenuItem { Header = lang["menu_preview"] };
         previewItem.Click += async (_, _) =>
@@ -110,6 +111,18 @@ public partial class MainWindow : Window
         };
         flyout.Items.Add(previewItem);
 
+        // Download
+        var downloadItem = new MenuItem { Header = lang["menu_download"] };
+        downloadItem.Click += async (_, _) =>
+        {
+            if (fl.SelectedFile != null)
+                await fl.DownloadFileCommand.ExecuteAsync(fl.SelectedFile);
+        };
+        flyout.Items.Add(downloadItem);
+
+        flyout.Items.Add(new Separator());
+
+        // ── Data operations ──
         // Edit (text files only)
         var editItem = new MenuItem { Header = lang["menu_edit"], Tag = "Edit" };
         editItem.Click += async (_, _) =>
@@ -119,9 +132,18 @@ public partial class MainWindow : Window
         };
         flyout.Items.Add(editItem);
 
-        // Separator
+        // Delete
+        var deleteItem = new MenuItem { Header = lang["menu_delete"] };
+        deleteItem.Click += async (_, _) =>
+        {
+            if (fl.SelectedFile != null)
+                await fl.DeleteFileCommand.ExecuteAsync(fl.SelectedFile);
+        };
+        flyout.Items.Add(deleteItem);
+
         flyout.Items.Add(new Separator());
 
+        // ── Copy operations ──
         // Copy Content (text files only)
         var copyContentItem = new MenuItem { Header = lang["menu_copy_content"], Tag = "CopyContent" };
         copyContentItem.Click += async (_, _) =>
@@ -157,27 +179,6 @@ public partial class MainWindow : Window
                 await fl.CopyFileInfoCommand.ExecuteAsync(fl.SelectedFile);
         };
         flyout.Items.Add(copyInfoItem);
-
-        // Separator
-        flyout.Items.Add(new Separator());
-
-        // Download
-        var downloadItem = new MenuItem { Header = lang["menu_download"] };
-        downloadItem.Click += async (_, _) =>
-        {
-            if (fl.SelectedFile != null)
-                await fl.DownloadFileCommand.ExecuteAsync(fl.SelectedFile);
-        };
-        flyout.Items.Add(downloadItem);
-
-        // Delete
-        var deleteItem = new MenuItem { Header = lang["menu_delete"] };
-        deleteItem.Click += async (_, _) =>
-        {
-            if (fl.SelectedFile != null)
-                await fl.DeleteFileCommand.ExecuteAsync(fl.SelectedFile);
-        };
-        flyout.Items.Add(deleteItem);
 
         return flyout;
     }

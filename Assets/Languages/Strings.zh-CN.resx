@@ -77,6 +77,9 @@
   <data name="lbl_language" xml:space="preserve">
     <value>语言</value>
   </data>
+  <data name="lbl_time_format" xml:space="preserve">
+    <value>时间格式</value>
+  </data>
   <data name="lbl_lang_zh_cn" xml:space="preserve">
     <value>简体中文</value>
   </data>
@@ -246,6 +249,9 @@
   </data>
   <data name="msg_file_info_copied" xml:space="preserve">
     <value>文件信息已复制到剪贴板。</value>
+  </data>
+  <data name="msg_edit_success" xml:space="preserve">
+    <value>文件保存并上传成功。</value>
   </data>
 
   <!-- ==================== Progress ==================== -->

@@ -1,11 +1,15 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 
 namespace OssClientPro.Views;
 
 public partial class PreviewWindow : Window
 {
+    private readonly string _textContent = string.Empty;
+    private readonly bool _isImage;
+
     public PreviewWindow() : this(string.Empty, "Preview", false) { }
 
     /// <summary>
@@ -18,6 +22,7 @@ public partial class PreviewWindow : Window
     {
         InitializeComponent();
         Title = $"{title} — Preview";
+        _isImage = isImage;
 
         if (isImage)
         {
@@ -26,6 +31,7 @@ public partial class PreviewWindow : Window
                 PreviewImage.Source = new Bitmap(content);
                 PreviewImage.IsVisible = true;
                 TextScroll.IsVisible = false;
+                CopyButton.IsEnabled = false;
             }
             catch
             {
@@ -35,10 +41,20 @@ public partial class PreviewWindow : Window
         }
         else
         {
+            _textContent = content;
             PreviewText.Text = content;
             TextScroll.IsVisible = true;
             PreviewImage.IsVisible = false;
         }
+    }
+
+    private async void Copy_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_isImage || string.IsNullOrEmpty(_textContent)) return;
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.Clipboard != null)
+            await topLevel.Clipboard.SetTextAsync(_textContent);
     }
 
     private void Close_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

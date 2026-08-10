@@ -33,6 +33,12 @@ public class LanguageService : INotifyPropertyChanged
     /// </summary>
     public CultureInfo CurrentCulture { get; private set; }
 
+    /// <summary>
+    /// Time display format: "auto" (follow OS), "12h", or "24h".
+    /// Set from OssConfig.TimeFormat when loading settings.
+    /// </summary>
+    public string TimeFormat { get; set; } = "auto";
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>
@@ -126,11 +132,40 @@ public class LanguageService : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Formats a DateTime according to the current culture.
+    /// Formats a DateTime according to the current culture and time format setting.
     /// </summary>
     public string FormatDateTime(DateTime dateTime)
     {
-        return dateTime.ToLocalTime().ToString("g", CurrentCulture);
+        var local = dateTime.ToLocalTime();
+        var use24h = TimeFormat switch
+        {
+            "24h" => true,
+            "12h" => false,
+            _ => IsSystem24Hour() // "auto" — detect from OS
+        };
+
+        var datePart = local.ToString("d", CurrentCulture);
+        var timePart = use24h
+            ? local.ToString("HH:mm")
+            : local.ToString("hh:mm tt", CurrentCulture);
+        return $"{datePart} {timePart}";
+    }
+
+    /// <summary>
+    /// Detects whether the operating system uses 24-hour time format.
+    /// </summary>
+    private static bool IsSystem24Hour()
+    {
+        try
+        {
+            var pattern = CultureInfo.CurrentCulture.DateTimeFormat.ShortTimePattern;
+            // If the pattern contains uppercase H (24-hour), the system uses 24h
+            return pattern.Contains('H');
+        }
+        catch
+        {
+            return true; // default to 24h on error
+        }
     }
 
     /// <summary>

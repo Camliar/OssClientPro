@@ -14,6 +14,7 @@
 - **Preview**: inline file preview (images, text) via toolbar button or right-click context menu
 - **Right-Click Menu**: per-row context menu with Preview, Edit, Delete, Copy Content, Copy File Name, Copy File Link, Copy File Info, Download
 - **Column Sorting**: click column headers (Name, Size, Last Modified) to sort ascending / descending
+- **Time Format**: 12h / 24h / auto (follow OS), configurable in Settings with live preview
 - **Pre-signed URL**: generate temporary download links for private files
 - **Encryption**: AccessKey credentials encrypted via Windows DPAPI
 - **Logging**: all operations logged to `app.log`, crash reports to `crash.log`

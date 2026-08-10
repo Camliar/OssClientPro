@@ -61,6 +61,18 @@ public partial class FileListViewModel : ViewModelBase
     [ObservableProperty]
     public partial string SearchText { get; set; } = string.Empty;
 
+    // ─── Notification toast ───
+
+    /// <summary>Brief toast message shown after operations (auto-dismissed).</summary>
+    [ObservableProperty]
+    public partial string NotificationMessage { get; set; } = string.Empty;
+
+    /// <summary>Whether the notification toast is currently visible.</summary>
+    [ObservableProperty]
+    public partial bool IsNotificationVisible { get; set; }
+
+    private CancellationTokenSource? _notificationCts;
+
     private string _basePrefix = string.Empty;
     private readonly List<OssObjectItem> _allFiles = [];
 
@@ -179,6 +191,31 @@ public partial class FileListViewModel : ViewModelBase
         IsAllSelected = count > 0 && count == Files.Count;
     }
 
+    // ──────────────────────── Notification Toast ────────────────────────
+
+    /// <summary>
+    /// Shows a temporary toast notification that auto-dismisses after <paramref name="durationMs"/>.
+    /// Subsequent calls cancel and replace the previous notification.
+    /// </summary>
+    private async Task ShowNotificationAsync(string message, int durationMs = 2500)
+    {
+        _notificationCts?.Cancel();
+        _notificationCts = new CancellationTokenSource();
+        var token = _notificationCts.Token;
+
+        NotificationMessage = message;
+        IsNotificationVisible = true;
+
+        try
+        {
+            await Task.Delay(durationMs, token);
+        }
+        catch (TaskCanceledException) { }
+
+        IsNotificationVisible = false;
+        NotificationMessage = string.Empty;
+    }
+
     // ──────────────────────── Upload ────────────────────────
 
     [RelayCommand]
@@ -221,6 +258,7 @@ public partial class FileListViewModel : ViewModelBase
             await _ossService.UploadFileAsync(SelectedBucket, objectName, localPath, progress);
 
             _main.StatusMessage = _main.LanguageService["msg_upload_success"];
+            _ = ShowNotificationAsync(_main.LanguageService["msg_upload_success"]);
             await LoadFilesAsync();
         }
         catch (Exception ex)
@@ -276,6 +314,7 @@ public partial class FileListViewModel : ViewModelBase
             await _ossService.DownloadFileAsync(SelectedBucket!, SelectedFile.Key, localPath, progress);
 
             _main.StatusMessage = _main.LanguageService["msg_download_success"];
+            _ = ShowNotificationAsync(_main.LanguageService["msg_download_success"]);
         }
         catch (Exception ex)
         {
@@ -326,9 +365,11 @@ public partial class FileListViewModel : ViewModelBase
                 await _ossService.DeleteFileAsync(SelectedBucket!, file.Key);
             }
 
-            _main.StatusMessage = toDelete.Count == 1
+            var deleteMsg = toDelete.Count == 1
                 ? _main.LanguageService["msg_delete_success"]
                 : string.Format(_main.LanguageService["msg_delete_batch_success"], toDelete.Count);
+            _main.StatusMessage = deleteMsg;
+            _ = ShowNotificationAsync(deleteMsg);
 
             await LoadFilesAsync();
         }
@@ -365,6 +406,7 @@ public partial class FileListViewModel : ViewModelBase
                 await topLevel.Clipboard.SetTextAsync(url);
 
             _main.StatusMessage = _main.LanguageService["msg_url_copied"];
+            _ = ShowNotificationAsync(_main.LanguageService["msg_url_copied"]);
         }
         catch (Exception ex)
         {
@@ -486,15 +528,68 @@ public partial class FileListViewModel : ViewModelBase
     // ──────────────────────── Edit (context menu) ────────────────────────
 
     /// <summary>
-    /// Opens a text file for viewing/editing. Only available for text-type files.
+    /// Downloads a text file, opens an editable window, and uploads the
+    /// modified content back to OSS when the user clicks Save.
+    /// Only available for text-type files.
     /// </summary>
     [RelayCommand]
     private async Task EditFileAsync(OssObjectItem? file)
     {
         if (file == null) return;
-        // Edit reuses the Preview window for now; future enhancement could add
-        // an editable text area with save-back-to-OSS capability.
-        await DoPreviewAsync(file);
+
+        try
+        {
+            IsFileOperationBusy = true;
+            _main.StatusMessage = _main.LanguageService["msg_preview_loading"];
+
+            var ext = Path.GetExtension(file.Name);
+            var tmpPath = Path.Combine(Path.GetTempPath(), $"oss_edit_{Guid.NewGuid():N}{ext}");
+            await _ossService.DownloadFileAsync(SelectedBucket!, file.Key, tmpPath);
+
+            var text = await File.ReadAllTextAsync(tmpPath);
+            if (text.Length > 1_000_000)
+                text = text[..1_000_000];
+
+            var editWindow = new Views.EditWindow(text, file.Name);
+            if (MainWindow != null)
+                await editWindow.ShowDialog(MainWindow);
+
+            if (editWindow.Saved)
+            {
+                _main.StatusMessage = _main.LanguageService["msg_uploading"];
+                var newText = editWindow.EditedText;
+                await File.WriteAllTextAsync(tmpPath, newText);
+
+                var progress = new Progress<double>(value =>
+                {
+                    ProgressValue = value;
+                    IsProgressVisible = value < 100;
+                });
+                IsProgressVisible = true;
+
+                await _ossService.UploadFileAsync(SelectedBucket!, file.Key, tmpPath, progress);
+
+                _main.StatusMessage = _main.LanguageService["msg_edit_success"];
+                _ = ShowNotificationAsync(_main.LanguageService["msg_edit_success"]);
+                await LoadFilesAsync();
+            }
+            else
+            {
+                _main.StatusMessage = string.Empty;
+            }
+
+            try { File.Delete(tmpPath); } catch { }
+        }
+        catch (Exception ex)
+        {
+            App.Log.Error("EditFile failed", ex);
+            _main.StatusMessage = OssExceptionHelper.GetFriendlyMessage(ex, _main.LanguageService);
+        }
+        finally
+        {
+            IsFileOperationBusy = false;
+            IsProgressVisible = false;
+        }
     }
 
     // ──────────────────────── Copy Content ────────────────────────
@@ -530,6 +625,7 @@ public partial class FileListViewModel : ViewModelBase
             try { File.Delete(tmpPath); } catch { }
 
             _main.StatusMessage = _main.LanguageService["msg_content_copied"];
+            _ = ShowNotificationAsync(_main.LanguageService["msg_content_copied"]);
         }
         catch (Exception ex)
         {
@@ -559,6 +655,7 @@ public partial class FileListViewModel : ViewModelBase
                 await topLevel.Clipboard.SetTextAsync(file.Name);
 
             _main.StatusMessage = _main.LanguageService["msg_file_name_copied"];
+            _ = ShowNotificationAsync(_main.LanguageService["msg_file_name_copied"]);
         }
         catch (Exception ex)
         {
@@ -590,6 +687,7 @@ public partial class FileListViewModel : ViewModelBase
                 await topLevel.Clipboard.SetTextAsync(url);
 
             _main.StatusMessage = _main.LanguageService["msg_file_link_copied"];
+            _ = ShowNotificationAsync(_main.LanguageService["msg_file_link_copied"]);
         }
         catch (Exception ex)
         {
@@ -620,6 +718,7 @@ public partial class FileListViewModel : ViewModelBase
                 await topLevel.Clipboard.SetTextAsync(info);
 
             _main.StatusMessage = _main.LanguageService["msg_file_info_copied"];
+            _ = ShowNotificationAsync(_main.LanguageService["msg_file_info_copied"]);
         }
         catch (Exception ex)
         {
@@ -668,6 +767,7 @@ public partial class FileListViewModel : ViewModelBase
             await _ossService.DownloadFileAsync(SelectedBucket!, file.Key, localPath, progress);
 
             _main.StatusMessage = _main.LanguageService["msg_download_success"];
+            _ = ShowNotificationAsync(_main.LanguageService["msg_download_success"]);
         }
         catch (Exception ex)
         {
@@ -707,6 +807,7 @@ public partial class FileListViewModel : ViewModelBase
             await _ossService.DeleteFileAsync(SelectedBucket!, file.Key);
 
             _main.StatusMessage = _main.LanguageService["msg_delete_success"];
+            _ = ShowNotificationAsync(_main.LanguageService["msg_delete_success"]);
 
             await LoadFilesAsync();
         }

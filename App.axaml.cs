@@ -74,6 +74,10 @@ public partial class App : Application
         Resources["Localization"] = _languageService;
         Log.Info("LanguageService initialized");
 
+        // Apply saved time format before creating ViewModels so initial display is correct
+        if (!string.IsNullOrEmpty(config.TimeFormat))
+            _languageService.TimeFormat = config.TimeFormat;
+
         var mainViewModel = new MainViewModel(configService, ossService, _languageService);
         mainViewModel.Settings.LoadConfig(config);
 
