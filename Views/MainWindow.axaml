@@ -148,6 +148,7 @@
                               ItemsSource="{Binding FileList.Files}"
                               SelectedItem="{Binding FileList.SelectedFile}"
                               AutoGenerateColumns="False"
+                              CanUserSortColumns="True"
                               Margin="8,4">
                         <DataGrid.Columns>
                             <DataGridTemplateColumn Width="40">
@@ -164,25 +165,12 @@
                                                 IsReadOnly="True" />
                             <DataGridTextColumn Binding="{Binding SizeDisplay}"
                                                 Width="120"
-                                                IsReadOnly="True" />
+                                                IsReadOnly="True"
+                                                SortMemberPath="Size" />
                             <DataGridTextColumn Binding="{Binding LastModifiedDisplay}"
                                                 Width="180"
-                                                IsReadOnly="True" />
-                            <DataGridTemplateColumn Width="40">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Button Content="👁"
-                                                FontSize="12"
-                                                Width="30" Height="24"
-                                                Padding="0"
-                                                HorizontalAlignment="Center"
-                                                VerticalAlignment="Center"
-                                                Background="Transparent"
-                                                Command="{Binding DataContext.FileList.PreviewFileCommand, ElementName=FileDataGrid}"
-                                                CommandParameter="{Binding}" />
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
+                                                IsReadOnly="True"
+                                                SortMemberPath="LastModified" />
                         </DataGrid.Columns>
                     </DataGrid>
 

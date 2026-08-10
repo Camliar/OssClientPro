@@ -210,6 +210,44 @@
     <value>Signed URL</value>
   </data>
 
+  <!-- ==================== Context Menu ==================== -->
+  <data name="menu_preview" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="menu_edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="menu_delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="menu_copy_content" xml:space="preserve">
+    <value>Copy Content</value>
+  </data>
+  <data name="menu_copy_file_name" xml:space="preserve">
+    <value>Copy File Name</value>
+  </data>
+  <data name="menu_copy_file_link" xml:space="preserve">
+    <value>Copy File Link</value>
+  </data>
+  <data name="menu_copy_file_info" xml:space="preserve">
+    <value>Copy File Info</value>
+  </data>
+  <data name="menu_download" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="msg_content_copied" xml:space="preserve">
+    <value>File content copied to clipboard.</value>
+  </data>
+  <data name="msg_file_name_copied" xml:space="preserve">
+    <value>File name copied to clipboard.</value>
+  </data>
+  <data name="msg_file_link_copied" xml:space="preserve">
+    <value>Signed URL copied to clipboard.</value>
+  </data>
+  <data name="msg_file_info_copied" xml:space="preserve">
+    <value>File info copied to clipboard.</value>
+  </data>
+
   <!-- ==================== Progress ==================== -->
   <data name="msg_uploading" xml:space="preserve">
     <value>Uploading...</value>

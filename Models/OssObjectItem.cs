@@ -42,4 +42,16 @@ public partial class OssObjectItem : ObservableObject
     /// </summary>
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
+
+    /// <summary>
+    /// Whether this file can be previewed (image or text file based on extension).
+    /// Determined when the item is populated from OSS.
+    /// </summary>
+    public bool CanPreview { get; set; }
+
+    /// <summary>
+    /// Whether this file is a text file (can be edited / content copied).
+    /// Subset of <see cref="CanPreview"/> — excludes binary/image files.
+    /// </summary>
+    public bool IsTextFile { get; set; }
 }

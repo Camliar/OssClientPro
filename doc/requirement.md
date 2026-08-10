@@ -31,7 +31,9 @@ OSS SDK：自研 OssHttpClient（直接调 REST API，HMAC-SHA1 签名 + XDocume
 下载文件：选中文件下载至本地，显示下载进度。
 批量删除：复选框勾选多个文件 + 全选/取消全选，二次确认后批量删除。
 搜索过滤：按文件名实时搜索，搜索框带 🔍 图标，占满工具栏剩余宽度。
-文件预览：点击行尾 👁 图标或工具栏 Preview 按钮，弹窗预览文件内容（支持图片、文本）。不支持的文件类型显示文件信息。
+文件预览：工具栏 Preview 按钮或右键菜单 Preview，弹窗预览文件内容（支持图片、文本）。不支持的文件类型显示文件信息。
+右键菜单：每行文件支持右键上下文菜单，提供 Preview、Edit、Delete、Copy Content、Copy File Name、Copy File Link、Copy File Info、Download 功能。Edit 和 Copy Content 仅对可预览文本文件有效。
+表头排序：点击列标题（File Name、Size、Last Modified）进行升序/降序排序。
 生成签名 URL：为私有文件生成带时效的预签名下载链接，自动复制到剪贴板。
 状态栏：显示已选数量、文件总数、上次刷新时间。
 

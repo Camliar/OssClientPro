@@ -11,7 +11,9 @@
 - **Authorized Path**: configure Bucket + directory prefix to restrict browsing scope
 - **i18n**: 简体中文 / English, runtime dynamic switching
 - **Search**: real-time filter files by name
-- **Preview**: inline file preview (images, text) via 👁 icon per row
+- **Preview**: inline file preview (images, text) via toolbar button or right-click context menu
+- **Right-Click Menu**: per-row context menu with Preview, Edit, Delete, Copy Content, Copy File Name, Copy File Link, Copy File Info, Download
+- **Column Sorting**: click column headers (Name, Size, Last Modified) to sort ascending / descending
 - **Pre-signed URL**: generate temporary download links for private files
 - **Encryption**: AccessKey credentials encrypted via Windows DPAPI
 - **Logging**: all operations logged to `app.log`, crash reports to `crash.log`
