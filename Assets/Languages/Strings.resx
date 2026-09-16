@@ -167,11 +167,17 @@
   <data name="msg_upload_failed" xml:space="preserve">
     <value>Upload failed.</value>
   </data>
+  <data name="msg_upload_not_applied" xml:space="preserve">
+    <value>Upload did not take effect: the remote object was not replaced. See app.log for details.</value>
+  </data>
   <data name="msg_download_success" xml:space="preserve">
     <value>File downloaded successfully.</value>
   </data>
   <data name="msg_download_failed" xml:space="preserve">
     <value>Download failed.</value>
+  </data>
+  <data name="msg_download_path_invalid" xml:space="preserve">
+    <value>Download failed: invalid target path.</value>
   </data>
   <data name="msg_preview_loading" xml:space="preserve">
     <value>Loading preview...</value>

@@ -255,10 +255,21 @@ public partial class FileListViewModel : ViewModelBase
                 IsProgressVisible = value < 100;
             });
 
+            // Record the state of any same-named object before the PUT, so the log
+            // shows exactly which key is being replaced, then verify the write
+            // actually landed instead of trusting the 2xx response alone.
+            var existing = await TryHeadAsync(SelectedBucket, objectName);
+            if (existing != null)
+                App.Log.Info($"Upload: replacing existing oss://{SelectedBucket}/{objectName} " +
+                             $"(size={existing.Length}, etag={existing.ETag}, lastModified={existing.LastModified:O})");
+
             await _ossService.UploadFileAsync(SelectedBucket, objectName, localPath, progress);
 
-            _main.StatusMessage = _main.LanguageService["msg_upload_success"];
-            _ = ShowNotificationAsync(_main.LanguageService["msg_upload_success"]);
+            var applied = await IsUploadAppliedAsync(SelectedBucket, objectName, localPath, existing);
+            var statusKey = applied ? "msg_upload_success" : "msg_upload_not_applied";
+            _main.StatusMessage = _main.LanguageService[statusKey];
+            _ = ShowNotificationAsync(_main.LanguageService[statusKey]);
+
             await LoadFilesAsync();
         }
         catch (Exception ex)
@@ -271,6 +282,102 @@ public partial class FileListViewModel : ViewModelBase
             IsFileOperationBusy = false;
             IsProgressVisible = false;
         }
+    }
+
+    /// <summary>
+    /// Reads the metadata of an object for the pre-upload probe, treating a failed
+    /// probe as "unknown" so a transient network error never blocks an upload.
+    /// </summary>
+    private async Task<OssObjectHead?> TryHeadAsync(string bucket, string key)
+    {
+        try
+        {
+            return await _ossService.HeadObjectAsync(bucket, key);
+        }
+        catch (Exception ex)
+        {
+            App.Log.Info($"Upload: HEAD {key} failed, continuing without pre-check ({ex.Message})");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Confirms that the PUT reached the target object by comparing the local file
+    /// size and the object's Last-Modified before and after the upload. OSS replaces
+    /// same-named objects by default, so a write that did not move Last-Modified
+    /// means the remote file was left untouched.
+    /// </summary>
+    /// <returns>
+    /// <c>true</c> when the upload is confirmed <em>or</em> when the check is
+    /// inconclusive — a probe failure must never turn a real upload into a false error.
+    /// </returns>
+    private async Task<bool> IsUploadAppliedAsync(string bucket, string key, string localPath,
+        OssObjectHead? before)
+    {
+        try
+        {
+            var localSize = new FileInfo(localPath).Length;
+            var after = await _ossService.HeadObjectAsync(bucket, key);
+
+            if (after == null)
+            {
+                App.Log.Error($"Upload: oss://{bucket}/{key} is missing after a successful PUT");
+                return false;
+            }
+
+            App.Log.Info($"Upload: oss://{bucket}/{key} is now size={after.Length}, " +
+                         $"etag={after.ETag}, lastModified={after.LastModified:O}");
+
+            if (after.Length != localSize)
+            {
+                App.Log.Error($"Upload: size mismatch after PUT (remote={after.Length}, local={localSize})");
+                return false;
+            }
+
+            if (before != null && after.LastModified == before.LastModified)
+            {
+                App.Log.Error("Upload: Last-Modified unchanged, the object was not replaced");
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            App.Log.Error("Upload verification inconclusive", ex);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the local path a download should be written to, mirroring the key's
+    /// relative directory layout under <paramref name="targetFolder"/>.
+    /// <see cref="OssObjectItem.Name"/> keeps the key's relative path (for example
+    /// "backend/dev/app.log"), so the containing directories must be created first —
+    /// otherwise the download fails with <see cref="DirectoryNotFoundException"/>.
+    /// </summary>
+    /// <returns>
+    /// The absolute local path, or <c>null</c> when the name would escape
+    /// <paramref name="targetFolder"/>.
+    /// </returns>
+    private static string? BuildDownloadPath(string targetFolder, string relativeName)
+    {
+        // OSS always uses '/' — normalize so a Windows-style key cannot smuggle
+        // a drive-relative path into Path.Combine.
+        var relative = relativeName.Replace('\\', '/').TrimStart('/');
+        var full = Path.GetFullPath(Path.Combine(targetFolder, relative));
+
+        var root = Path.GetFullPath(targetFolder)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        if (!full.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var directory = Path.GetDirectoryName(full);
+        if (!string.IsNullOrEmpty(directory))
+            Directory.CreateDirectory(directory);
+
+        return full;
     }
 
     // ──────────────────────── Download ────────────────────────
@@ -298,7 +405,12 @@ public partial class FileListViewModel : ViewModelBase
 
             if (folder.Count == 0) return;
 
-            var localPath = Path.Combine(folder[0].Path.LocalPath, SelectedFile.Name);
+            var localPath = BuildDownloadPath(folder[0].Path.LocalPath, SelectedFile.Name);
+            if (localPath == null)
+            {
+                _main.StatusMessage = _main.LanguageService["msg_download_path_invalid"];
+                return;
+            }
             App.Log.Info($"Download: oss://{SelectedBucket}/{SelectedFile.Key} → {localPath}");
 
             IsFileOperationBusy = true;
@@ -751,7 +863,12 @@ public partial class FileListViewModel : ViewModelBase
 
             if (folder.Count == 0) return;
 
-            var localPath = Path.Combine(folder[0].Path.LocalPath, file.Name);
+            var localPath = BuildDownloadPath(folder[0].Path.LocalPath, file.Name);
+            if (localPath == null)
+            {
+                _main.StatusMessage = _main.LanguageService["msg_download_path_invalid"];
+                return;
+            }
             App.Log.Info($"Download (context): oss://{SelectedBucket}/{file.Key} → {localPath}");
 
             IsFileOperationBusy = true;

@@ -89,6 +89,34 @@ public class OssHttpClient
         await SendAsync(HttpMethod.Put, bucket, "/" + key, null, content);
     }
 
+    // ════════════════════ Head ════════════════════
+
+    /// <summary>
+    /// Fetches the metadata of a single object.
+    /// </summary>
+    /// <returns>
+    /// The object metadata, or <c>null</c> when the object does not exist.
+    /// A missing object is a normal answer here — callers probe before uploading.
+    /// </returns>
+    public async Task<OssObjectHead?> HeadObjectAsync(string bucket, string key)
+    {
+        EnsureInit();
+        using var resp = await SendRawAsync(HttpMethod.Head, bucket, "/" + key);
+
+        if (resp.StatusCode == HttpStatusCode.NotFound)
+            return null;
+
+        if (!resp.IsSuccessStatusCode)
+            throw new InvalidOperationException($"OSS {(int)resp.StatusCode}: HEAD {key} failed");
+
+        return new OssObjectHead
+        {
+            ETag = resp.Headers.ETag?.Tag.Trim('"') ?? string.Empty,
+            Length = resp.Content.Headers.ContentLength ?? 0,
+            LastModified = resp.Content.Headers.LastModified ?? DateTimeOffset.MinValue
+        };
+    }
+
     // ════════════════════ Download ════════════════════
 
     public async Task DownloadFileAsync(string bucket, string key, string localPath,

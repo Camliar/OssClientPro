@@ -39,6 +39,15 @@ public class OssService
         await _client.UploadFileAsync(bucket, key, localPath, progress);
     }
 
+    /// <summary>
+    /// Reads the metadata of an object, or <c>null</c> when it does not exist.
+    /// </summary>
+    public async Task<OssObjectHead?> HeadObjectAsync(string bucket, string key)
+    {
+        EnsureInit();
+        return await _client.HeadObjectAsync(bucket, key);
+    }
+
     public async Task DownloadFileAsync(string bucket, string key, string localPath,
         IProgress<double>? progress = null)
     {
