@@ -295,4 +295,22 @@
   <data name="msg_oss_network_error" xml:space="preserve">
     <value>网络错误。请检查 Endpoint 地址和网络连接。</value>
   </data>
+  <data name="msg_oss_timeout" xml:space="preserve">
+    <value>请求超时：传输未在预期时间内完成。请检查网络后重试。</value>
+  </data>
+  <data name="tooltip_switch_view" xml:space="preserve">
+    <value>切换视图（列表 / 树形）</value>
+  </data>
+  <data name="tooltip_upload_target" xml:space="preserve">
+    <value>上传到：</value>
+  </data>
+  <data name="menu_upload_here" xml:space="preserve">
+    <value>上传到此处</value>
+  </data>
+  <data name="menu_copy_dir_name" xml:space="preserve">
+    <value>复制目录路径</value>
+  </data>
+  <data name="msg_dir_path_copied" xml:space="preserve">
+    <value>目录路径已复制。</value>
+  </data>
 </root>

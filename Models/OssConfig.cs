@@ -48,6 +48,13 @@ public class OssConfig
     public string TimeFormat { get; set; } = "auto";
 
     /// <summary>
+    /// File area view mode: "tree" (hierarchical) or "list" (flat grid).
+    /// Defaults to "tree".
+    /// </summary>
+    [JsonPropertyName("viewMode")]
+    public string ViewMode { get; set; } = "tree";
+
+    /// <summary>
     /// Returns true if all required credential fields are populated.
     /// </summary>
     [JsonIgnore]

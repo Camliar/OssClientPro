@@ -53,7 +53,9 @@ public class ConfigService
         {
             try
             {
-                // Encrypt sensitive fields before persisting
+                // Encrypt sensitive fields before persisting.
+                // NOTE: this is an explicit allow-list — any new OssConfig property
+                // must be copied here too, or it will be silently dropped on save.
                 var toSave = new OssConfig
                 {
                     Endpoint = config.Endpoint,
@@ -64,7 +66,9 @@ public class ConfigService
                     Region = config.Region,
                     DefaultBucket = config.DefaultBucket,
                     BasePrefix = config.BasePrefix,
-                    Language = config.Language
+                    Language = config.Language,
+                    TimeFormat = config.TimeFormat,
+                    ViewMode = config.ViewMode
                 };
 
                 var json = JsonSerializer.Serialize(toSave, _jsonContext.OssConfig);

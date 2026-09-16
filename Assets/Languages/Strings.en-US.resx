@@ -295,4 +295,22 @@
   <data name="msg_oss_network_error" xml:space="preserve">
     <value>Network error. Please check your Endpoint and internet connection.</value>
   </data>
+  <data name="msg_oss_timeout" xml:space="preserve">
+    <value>Request timed out: the transfer did not finish within its budget. Check your connection and retry.</value>
+  </data>
+  <data name="tooltip_switch_view" xml:space="preserve">
+    <value>Switch view (list / tree)</value>
+  </data>
+  <data name="tooltip_upload_target" xml:space="preserve">
+    <value>Upload to: </value>
+  </data>
+  <data name="menu_upload_here" xml:space="preserve">
+    <value>Upload here</value>
+  </data>
+  <data name="menu_copy_dir_name" xml:space="preserve">
+    <value>Copy Folder Path</value>
+  </data>
+  <data name="msg_dir_path_copied" xml:space="preserve">
+    <value>Folder path copied.</value>
+  </data>
 </root>

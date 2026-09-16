@@ -118,6 +118,33 @@ public partial class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Persists the file-area view mode chosen in the UI.
+    /// </summary>
+    /// <param name="mode">"tree" or "list".</param>
+    /// <remarks>
+    /// The config is reloaded first: <see cref="ConfigService.SaveConfigAsync"/> takes
+    /// plaintext credentials and re-encrypts them, so it needs the full loaded config
+    /// rather than the encrypted values already on disk.
+    /// </remarks>
+    public async Task PersistViewModeAsync(string mode)
+    {
+        try
+        {
+            var config = await _configService.LoadConfigAsync();
+            if (string.Equals(config.ViewMode, mode, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            config.ViewMode = mode;
+            await _configService.SaveConfigAsync(config);
+            App.Log.Info($"View mode changed: {mode}");
+        }
+        catch (Exception ex)
+        {
+            App.Log.Error("Failed to persist view mode", ex);
+        }
+    }
+
+    /// <summary>
     /// Connects to OSS using the saved configuration and loads buckets.
     /// </summary>
     public async Task ConnectAsync()
@@ -139,6 +166,7 @@ public partial class MainViewModel : ViewModelBase
             _ossService.Initialize(config);
 
             FileList.SetBasePrefix(config.BasePrefix);
+            FileList.ApplyViewMode(config.ViewMode);
             FileList.Buckets.Clear();
 
             if (!string.IsNullOrEmpty(config.DefaultBucket))

@@ -24,11 +24,41 @@ public partial class FileListViewModel : ViewModelBase
     /// <summary>Filtered files shown in the DataGrid (after search).</summary>
     public ObservableCollection<OssObjectItem> Files { get; } = [];
 
+    /// <summary>
+    /// Hierarchical view of the same objects as <see cref="Files"/>, shown in the
+    /// tree view. File nodes are the very same <see cref="OssObjectItem"/> instances
+    /// so checkbox selection is shared across both views; only directory nodes are new.
+    /// </summary>
+    public ObservableCollection<OssObjectItem> TreeNodes { get; } = [];
+
     [ObservableProperty]
     public partial string? SelectedBucket { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UploadPrefix))]
+    [NotifyPropertyChangedFor(nameof(UploadTargetDisplay))]
+    [NotifyPropertyChangedFor(nameof(CanActOnFile))]
+    [NotifyPropertyChangedFor(nameof(CanDelete))]
     public partial OssObjectItem? SelectedFile { get; set; }
+
+    /// <summary>
+    /// Item selected in the tree view. Deliberately separate from
+    /// <see cref="SelectedFile"/>: a directory node is not an OSS object, and the
+    /// grid (still bound while hidden) would coerce such a selection back to null.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UploadPrefix))]
+    [NotifyPropertyChangedFor(nameof(UploadTargetDisplay))]
+    public partial OssObjectItem? SelectedNode { get; set; }
+
+    /// <summary>
+    /// Whether the file area shows the tree view instead of the flat list.
+    /// Persisted to config.json so the choice survives a restart.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UploadPrefix))]
+    [NotifyPropertyChangedFor(nameof(UploadTargetDisplay))]
+    public partial bool IsTreeView { get; set; }
 
     [ObservableProperty]
     public partial double ProgressValue { get; set; }
@@ -37,13 +67,28 @@ public partial class FileListViewModel : ViewModelBase
     public partial bool IsProgressVisible { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanActOnFile))]
+    [NotifyPropertyChangedFor(nameof(CanDelete))]
     public partial bool IsFileOperationBusy { get; set; }
 
     [ObservableProperty]
     public partial bool IsAllSelected { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanDelete))]
     public partial int SelectedCount { get; set; }
+
+    /// <summary>
+    /// Whether a command that acts on one specific file — download, preview, signed
+    /// URL — can run: a file must be selected and no other operation in flight.
+    /// </summary>
+    public bool CanActOnFile => !IsFileOperationBusy && SelectedFile != null;
+
+    /// <summary>
+    /// Whether delete can run. It accepts either a selected file or any checked rows,
+    /// so it stays enabled when only checkboxes are ticked.
+    /// </summary>
+    public bool CanDelete => !IsFileOperationBusy && (SelectedFile != null || SelectedCount > 0);
 
     // ─── Status bar stats ───
 
@@ -75,6 +120,10 @@ public partial class FileListViewModel : ViewModelBase
 
     private string _basePrefix = string.Empty;
     private readonly List<OssObjectItem> _allFiles = [];
+
+    /// <summary>Set while <see cref="ApplyViewMode"/> restores the saved mode, so
+    /// loading settings does not immediately write them back to disk.</summary>
+    private bool _suppressViewModePersist;
 
     public FileListViewModel() : this(new OssService(), null!) { }
 
@@ -128,6 +177,9 @@ public partial class FileListViewModel : ViewModelBase
                 if (_basePrefix.Length > 0 && displayKey.StartsWith(_basePrefix, StringComparison.Ordinal))
                     displayKey = displayKey[_basePrefix.Length..];
                 obj.Name = string.IsNullOrEmpty(displayKey) ? obj.Key : displayKey;
+                // TrimEnd handles directory placeholder objects, whose keys end with '/'.
+                obj.LeafName = Path.GetFileName(obj.Name.TrimEnd('/'));
+                obj.IsDirectoryPlaceholder = obj.Key.EndsWith('/');
                 obj.SizeDisplay = _main.LanguageService.FormatFileSize(obj.Size);
                 obj.LastModifiedDisplay = _main.LanguageService.FormatDateTime(obj.LastModified);
                 obj.IsSelected = false;
@@ -171,6 +223,114 @@ public partial class FileListViewModel : ViewModelBase
                 Files.Add(f);
             }
         }
+
+        // Rebuild before pruning so nodes removed by a previous query come back.
+        BuildTree();
+        if (q.Length > 0)
+            PruneTree(TreeNodes, q);
+    }
+
+    /// <summary>
+    /// Builds <see cref="TreeNodes"/> from <see cref="_allFiles"/> by splitting each
+    /// object's relative key on '/'. File nodes reuse the existing item instances so
+    /// checkbox selection stays shared with the flat list; only directories are new.
+    /// </summary>
+    private void BuildTree()
+    {
+        TreeNodes.Clear();
+        var directories = new Dictionary<string, OssObjectItem>(StringComparer.Ordinal);
+
+        foreach (var file in _allFiles)
+        {
+            // Derive the relative path from Key, not Name: Name falls back to the full
+            // key when an object sits exactly on the base prefix, which would nest the
+            // browsing root inside itself as a phantom folder.
+            var relative = file.Key;
+            if (_basePrefix.Length > 0 && relative.StartsWith(_basePrefix, StringComparison.Ordinal))
+                relative = relative[_basePrefix.Length..];
+
+            var segments = relative.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length == 0)
+                continue; // the base prefix itself — it is the root, not a child of it
+
+            // A key ending in '/' is a directory placeholder created by the OSS
+            // console — it becomes a directory node instead of a file row.
+            var isPlaceholder = relative.EndsWith('/');
+            var directoryDepth = isPlaceholder ? segments.Length : segments.Length - 1;
+
+            OssObjectItem? parent = null;
+            var path = string.Empty;
+            for (var i = 0; i < directoryDepth; i++)
+            {
+                path += segments[i] + "/";
+                if (!directories.TryGetValue(path, out var directory))
+                {
+                    directory = new OssObjectItem
+                    {
+                        Key = _basePrefix + path,
+                        Name = path,
+                        LeafName = segments[i],
+                        IsFolder = true
+                    };
+                    directories[path] = directory;
+                    (parent?.Children ?? TreeNodes).Add(directory);
+                }
+                parent = directory;
+            }
+
+            if (!isPlaceholder)
+                (parent?.Children ?? TreeNodes).Add(file);
+        }
+
+        SortNodes(TreeNodes);
+    }
+
+    /// <summary>
+    /// Orders each level of the tree: directories first, then by display name.
+    /// </summary>
+    private static void SortNodes(ObservableCollection<OssObjectItem> nodes)
+    {
+        var ordered = nodes
+            .OrderByDescending(n => n.IsFolder)
+            .ThenBy(n => n.LeafName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        nodes.Clear();
+        foreach (var node in ordered)
+        {
+            SortNodes(node.Children);
+            nodes.Add(node);
+        }
+    }
+
+    /// <summary>
+    /// Drops tree nodes that neither match <paramref name="query"/> nor contain a
+    /// matching descendant, and expands the ancestors of every hit so results stay
+    /// visible in context. Runs against a freshly built tree.
+    /// </summary>
+    /// <returns>Whether any node survived in this subtree.</returns>
+    private static bool PruneTree(ObservableCollection<OssObjectItem> nodes, string query)
+    {
+        var anyKept = false;
+
+        // Snapshot — the collection is rewritten while iterating.
+        foreach (var node in nodes.ToList())
+        {
+            var selfMatch = node.Name.Contains(query, StringComparison.OrdinalIgnoreCase);
+            var descendantMatch = PruneTree(node.Children, query);
+
+            if (selfMatch || descendantMatch)
+            {
+                node.IsExpanded = true;
+                anyKept = true;
+            }
+            else
+            {
+                nodes.Remove(node);
+            }
+        }
+
+        return anyKept;
     }
 
     // ──────────────────────── Select-All ────────────────────────
@@ -216,6 +376,94 @@ public partial class FileListViewModel : ViewModelBase
         NotificationMessage = string.Empty;
     }
 
+    // ──────────────────────── View mode ────────────────────────
+
+    /// <summary>
+    /// Directory that uploads are written to. The tree view follows the selection —
+    /// a directory node, or the parent directory of the selected file. The flat list
+    /// has no directory context, so it keeps uploading to the base prefix as before.
+    /// </summary>
+    public string UploadPrefix
+    {
+        get
+        {
+            if (!IsTreeView || SelectedNode == null)
+                return _basePrefix;
+
+            return SelectedNode.IsFolder
+                ? SelectedNode.Key
+                : _basePrefix + ParentPath(SelectedNode.Name);
+        }
+    }
+
+    partial void OnSelectedNodeChanged(OssObjectItem? value)
+    {
+        // Only real objects can be downloaded, deleted or previewed, so selecting a
+        // directory clears the file selection instead of leaving a stale one behind.
+        SelectedFile = value is { IsFolder: false } ? value : null;
+    }
+
+    /// <summary>
+    /// Upload target rendered for the Upload button tooltip, so the destination is
+    /// visible before the file picker opens. "/" stands for the bucket/prefix root.
+    /// </summary>
+    public string UploadTargetDisplay
+    {
+        get
+        {
+            var prefix = UploadPrefix;
+            return _main.LanguageService["tooltip_upload_target"] + (prefix.Length > 0 ? prefix : "/");
+        }
+    }
+
+    /// <summary>
+    /// Flips between the list and tree views (toolbar button).
+    /// </summary>
+    /// <remarks>
+    /// A plain command rather than a bound ToggleButton: the Fluent theme paints a
+    /// checked ToggleButton with the accent background, which would swallow the
+    /// accent-coloured glyph drawn on top of it.
+    /// </remarks>
+    [RelayCommand]
+    private void ToggleView()
+    {
+        IsTreeView = !IsTreeView;
+    }
+
+    /// <summary>
+    /// Applies the persisted view mode. Any value other than "list" selects the tree.
+    /// </summary>
+    public void ApplyViewMode(string? mode)
+    {
+        _suppressViewModePersist = true;
+        try
+        {
+            IsTreeView = !string.Equals(mode, "list", StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            _suppressViewModePersist = false;
+        }
+    }
+
+    partial void OnIsTreeViewChanged(bool value)
+    {
+        if (_suppressViewModePersist)
+            return;
+
+        _ = _main.PersistViewModeAsync(value ? "tree" : "list");
+    }
+
+    /// <summary>
+    /// Returns the directory portion of a relative key, including the trailing
+    /// separator ("backend/dev/app.log" → "backend/dev/").
+    /// </summary>
+    private static string ParentPath(string relativeName)
+    {
+        var slash = relativeName.LastIndexOf('/');
+        return slash < 0 ? string.Empty : relativeName[..(slash + 1)];
+    }
+
     // ──────────────────────── Upload ────────────────────────
 
     [RelayCommand]
@@ -242,7 +490,7 @@ public partial class FileListViewModel : ViewModelBase
             if (files.Count == 0) return;
 
             var localPath = files[0].Path.LocalPath;
-            var objectName = _basePrefix + Path.GetFileName(localPath);
+            var objectName = UploadPrefix + Path.GetFileName(localPath);
             App.Log.Info($"Upload: local={localPath} → oss://{SelectedBucket}/{objectName}");
 
             IsFileOperationBusy = true;
@@ -281,6 +529,47 @@ public partial class FileListViewModel : ViewModelBase
         {
             IsFileOperationBusy = false;
             IsProgressVisible = false;
+        }
+    }
+
+    /// <summary>
+    /// Starts an upload into the given directory node (tree view context menu).
+    /// </summary>
+    /// <param name="folder">Directory node to upload into.</param>
+    [RelayCommand]
+    private async Task UploadHereAsync(OssObjectItem? folder)
+    {
+        if (folder is not { IsFolder: true })
+            return;
+
+        // UploadPrefix follows the tree selection, so selecting the node is enough.
+        SelectedNode = folder;
+        await UploadAsync();
+    }
+
+    /// <summary>
+    /// Copies the full key of a directory node to the clipboard.
+    /// </summary>
+    /// <param name="folder">Directory node whose key is copied.</param>
+    [RelayCommand]
+    private async Task CopyDirectoryNameAsync(OssObjectItem? folder)
+    {
+        if (folder is not { IsFolder: true })
+            return;
+
+        try
+        {
+            var topLevel = TopLevel.GetTopLevel(MainWindow);
+            if (topLevel?.Clipboard != null)
+                await topLevel.Clipboard.SetTextAsync(folder.Key);
+
+            _main.StatusMessage = _main.LanguageService["msg_dir_path_copied"];
+            _ = ShowNotificationAsync(_main.LanguageService["msg_dir_path_copied"]);
+        }
+        catch (Exception ex)
+        {
+            App.Log.Error("CopyDirectoryName failed", ex);
+            _main.StatusMessage = OssExceptionHelper.GetFriendlyMessage(ex, _main.LanguageService);
         }
     }
 

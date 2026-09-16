@@ -22,6 +22,12 @@ public static class OssExceptionHelper
             return lang["msg_oss_auth_failure"];
         if (IsMatch(msg, "NoSuchBucket", "NoSuchKey"))
             return lang["msg_oss_no_such_bucket"];
+
+        // A cancelled request is how HttpClient reports its own timeout. Release builds
+        // replace resource strings with keys, so match "timedout" as well as "timed out".
+        if (ex is OperationCanceledException
+            || IsMatch(msg, "timed out", "timedout", "timeout", "net_http_request_timedout"))
+            return lang["msg_oss_timeout"];
         if (ex is System.Net.Http.HttpRequestException or System.Net.Sockets.SocketException
             || IsMatch(msg, "timed out", "timeout", "NameResolution", "connection"))
             return lang["msg_oss_network_error"];

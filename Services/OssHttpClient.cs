@@ -20,12 +20,37 @@ public class OssHttpClient
     private string _endpoint = string.Empty;
     private bool _initialized;
 
+    /// <summary>Budget for small control-plane calls — list, head, delete.</summary>
+    private static readonly TimeSpan ControlTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Worst-case throughput assumed when sizing a transfer budget. A 64 KB/s floor
+    /// keeps slow links working while still capping a genuinely stalled transfer.
+    /// </summary>
+    private const long MinTransferBytesPerSecond = 64 * 1024;
+
+    /// <summary>
+    /// Timeout for a request that moves <paramref name="payloadBytes"/>: the control
+    /// allowance plus a budget sized by the payload.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="HttpClient.Timeout"/> spans the whole operation including the body,
+    /// so a single fixed value cannot serve both a 1 KB list call and a 500 MB upload.
+    /// A hard 30s here used to abort large uploads mid-body; OSS discards the truncated
+    /// PUT, leaving the remote object unchanged.
+    /// </remarks>
+    private static TimeSpan TransferTimeout(long payloadBytes)
+        => ControlTimeout + TimeSpan.FromSeconds((double)payloadBytes / MinTransferBytesPerSecond);
+
     public void Initialize(string endpoint, string accessKeyId, string accessKeySecret)
     {
         _endpoint = endpoint.Trim();
         _accessKeyId = accessKeyId.Trim();
         _accessKeySecret = accessKeySecret.Trim();
-        _http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+
+        // No global timeout — every request carries its own budget, because uploads
+        // and downloads stream bodies that a fixed value would cut off mid-transfer.
+        _http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
         _initialized = true;
     }
 
@@ -86,7 +111,8 @@ public class OssHttpClient
         var content = new ProgressableStreamContent(stream, fileInfo.Length, progress);
         content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
 
-        await SendAsync(HttpMethod.Put, bucket, "/" + key, null, content);
+        await SendAsync(HttpMethod.Put, bucket, "/" + key, null, content,
+            TransferTimeout(fileInfo.Length));
     }
 
     // ════════════════════ Head ════════════════════
@@ -123,18 +149,30 @@ public class OssHttpClient
         IProgress<double>? progress = null)
     {
         EnsureInit();
-        using var resp = await SendRawAsync(HttpMethod.Get, bucket, "/" + key);
+
+        // Headers first, so the body budget below can be sized from Content-Length.
+        using var resp = await SendRawAsync(HttpMethod.Get, bucket, "/" + key, null, null,
+            ControlTimeout, HttpCompletionOption.ResponseHeadersRead);
+
+        if (!resp.IsSuccessStatusCode)
+        {
+            var error = await resp.Content.ReadAsStringAsync();
+            throw new InvalidOperationException(
+                $"OSS {(int)resp.StatusCode}: {Truncate(error, 200)}");
+        }
 
         var total = resp.Content.Headers.ContentLength ?? 0;
-        await using var src = await resp.Content.ReadAsStreamAsync();
+        using var cts = new CancellationTokenSource(TransferTimeout(total));
+
+        await using var src = await resp.Content.ReadAsStreamAsync(cts.Token);
         await using var dst = File.Create(localPath);
 
         var buf = new byte[81920];
         long read = 0;
         int n;
-        while ((n = await src.ReadAsync(buf)) > 0)
+        while ((n = await src.ReadAsync(buf, cts.Token)) > 0)
         {
-            await dst.WriteAsync(buf.AsMemory(0, n));
+            await dst.WriteAsync(buf.AsMemory(0, n), cts.Token);
             read += n;
             if (total > 0) progress?.Report((double)read / total * 100.0);
         }
@@ -169,9 +207,10 @@ public class OssHttpClient
     // ════════════════════ Core HTTP ════════════════════
 
     private async Task<string> SendAsync(HttpMethod method, string? bucket,
-        string path, string? query = null, HttpContent? content = null)
+        string path, string? query = null, HttpContent? content = null,
+        TimeSpan? timeout = null)
     {
-        using var resp = await SendRawAsync(method, bucket, path, query, content);
+        using var resp = await SendRawAsync(method, bucket, path, query, content, timeout);
         var body = await resp.Content.ReadAsStringAsync();
 
         if (!resp.IsSuccessStatusCode)
@@ -183,7 +222,9 @@ public class OssHttpClient
     }
 
     private async Task<HttpResponseMessage> SendRawAsync(HttpMethod method, string? bucket,
-        string path, string? query = null, HttpContent? content = null)
+        string path, string? query = null, HttpContent? content = null,
+        TimeSpan? timeout = null,
+        HttpCompletionOption completion = HttpCompletionOption.ResponseContentRead)
     {
         // ListBuckets uses the base endpoint; ListObjects/Upload/etc use bucket-specific
         var host = bucket != null ? $"{bucket}.{_endpoint}" : _endpoint;
@@ -202,7 +243,8 @@ public class OssHttpClient
         req.Headers.Authorization = new AuthenticationHeaderValue("OSS",
             $"{_accessKeyId}:{signature}");
 
-        return await _http.SendAsync(req);
+        using var cts = new CancellationTokenSource(timeout ?? ControlTimeout);
+        return await _http.SendAsync(req, completion, cts.Token);
     }
 
     /// <summary>
