@@ -1,6 +1,6 @@
 ; NSIS installer script for OssClientPro (Windows)
 !define PRODUCT_NAME "OssClientPro"
-!define PRODUCT_VERSION "1.0.0"
+!define PRODUCT_VERSION "1.2.0"
 !define PRODUCT_PUBLISHER "Camliar"
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"

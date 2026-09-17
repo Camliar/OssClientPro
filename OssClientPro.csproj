@@ -106,9 +106,9 @@
     &lt;key&gt;CFBundleIdentifier&lt;/key&gt;
     &lt;string&gt;com.camliar.ossclientpro&lt;/string&gt;
     &lt;key&gt;CFBundleVersion&lt;/key&gt;
-    &lt;string&gt;1.0.0&lt;/string&gt;
+    &lt;string&gt;1.2.0&lt;/string&gt;
     &lt;key&gt;CFBundleShortVersionString&lt;/key&gt;
-    &lt;string&gt;1.0&lt;/string&gt;
+    &lt;string&gt;1.2&lt;/string&gt;
     &lt;key&gt;CFBundlePackageType&lt;/key&gt;
     &lt;string&gt;APPL&lt;/string&gt;
     &lt;key&gt;CFBundleIconFile&lt;/key&gt;
