@@ -75,27 +75,55 @@ public class OssHttpClient
 
     // ════════════════════ List objects ════════════════════
 
+    /// <summary>
+    /// Lists every object under <paramref name="prefix"/>, following the
+    /// continuation token until OSS reports the listing is complete.
+    /// </summary>
+    /// <remarks>
+    /// OSS caps one ListObjectsV2 response at max-keys, so a single request
+    /// silently hides everything past the first page. The continuation token has to
+    /// be signed on top of the path — see <see cref="SignedQueryKeys"/>.
+    /// </remarks>
     public async Task<List<OssObjectItem>> ListObjectsAsync(string bucket, string? prefix)
     {
         EnsureInit();
-        var query = "?list-type=2&max-keys=1000";
-        if (!string.IsNullOrEmpty(prefix)) query += $"&prefix={Uri.EscapeDataString(prefix)}";
 
-        var resp = await SendAsync(HttpMethod.Get, bucket, "/", query);
-        var doc = XDocument.Parse(resp);
-
-        var ns = doc.Root!.Name.Namespace;
+        const int MaxKeysPerPage = 1000;
         var items = new List<OssObjectItem>();
+        string? continuationToken = null;
 
-        foreach (var c in doc.Root.Elements(ns + "Contents"))
+        do
         {
-            items.Add(new OssObjectItem
+            var query = $"?list-type=2&max-keys={MaxKeysPerPage}";
+            if (!string.IsNullOrEmpty(prefix))
+                query += $"&prefix={Uri.EscapeDataString(prefix)}";
+            if (!string.IsNullOrEmpty(continuationToken))
+                query += $"&continuation-token={Uri.EscapeDataString(continuationToken)}";
+
+            var resp = await SendAsync(HttpMethod.Get, bucket, "/", query);
+            var doc = XDocument.Parse(resp);
+            var ns = doc.Root!.Name.Namespace;
+
+            foreach (var c in doc.Root.Elements(ns + "Contents"))
             {
-                Key = c.Element(ns + "Key")?.Value ?? "",
-                Size = long.TryParse(c.Element(ns + "Size")?.Value, out var s) ? s : 0,
-                LastModified = DateTime.TryParse(c.Element(ns + "LastModified")?.Value, out var d) ? d : DateTime.MinValue
-            });
+                items.Add(new OssObjectItem
+                {
+                    Key = c.Element(ns + "Key")?.Value ?? "",
+                    Size = long.TryParse(c.Element(ns + "Size")?.Value, out var s) ? s : 0,
+                    LastModified = DateTime.TryParse(c.Element(ns + "LastModified")?.Value, out var d) ? d : DateTime.MinValue
+                });
+            }
+
+            // An empty token is the loop guard: it ends the walk even if a
+            // truncated page unexpectedly omits the token.
+            var truncated = string.Equals(doc.Root.Element(ns + "IsTruncated")?.Value,
+                "true", StringComparison.OrdinalIgnoreCase);
+            continuationToken = truncated
+                ? doc.Root.Element(ns + "NextContinuationToken")?.Value
+                : null;
         }
+        while (!string.IsNullOrEmpty(continuationToken));
+
         return items;
     }
 
@@ -239,7 +267,8 @@ public class OssHttpClient
         req.Headers.Host = host;
 
         // Sign the request
-        var signature = Sign(method.Method, date, bucket, path, content?.Headers.ContentType?.ToString());
+        var signature = Sign(method.Method, date, bucket, path,
+            content?.Headers.ContentType?.ToString(), ExtractSignedQuery(query));
         req.Headers.Authorization = new AuthenticationHeaderValue("OSS",
             $"{_accessKeyId}:{signature}");
 
@@ -250,15 +279,66 @@ public class OssHttpClient
     /// <summary>
     /// OSS V1 signature: base64(HMAC-SHA1(secret, stringToSign))
     /// </summary>
+    /// <param name="signedQuery">
+    /// Sub-resources to fold into the canonicalized resource — see
+    /// <see cref="ExtractSignedQuery"/>. Empty for requests without any.
+    /// </param>
     private string Sign(string method, string date, string? bucket, string path,
-        string? contentType)
+        string? contentType, Dictionary<string, string>? signedQuery = null)
     {
         contentType ??= "";
         // ListBuckets has no bucket in the resource path
         var resource = bucket != null ? $"/{bucket}{path}" : path;
+
+        if (signedQuery is { Count: > 0 })
+        {
+            // Sub-resources are appended in lexicographic order, each as key=value.
+            var parts = signedQuery
+                .OrderBy(p => p.Key, StringComparer.Ordinal)
+                .Select(p => p.Value.Length == 0 ? p.Key : $"{p.Key}={p.Value}");
+            resource += "?" + string.Join("&", parts);
+        }
+
         var stringToSign = $"{method}\n\n{contentType}\n{date}\n{resource}";
         var sig = HmacSha1(_accessKeySecret, stringToSign);
         return Convert.ToBase64String(sig);
+    }
+
+    /// <summary>
+    /// Query parameters that belong in the canonicalized resource of a V1 signature.
+    /// </summary>
+    /// <remarks>
+    /// Ordinary query parameters are not signed — <c>list-type</c>, <c>prefix</c> and
+    /// <c>max-keys</c> are accepted without them — but a continuation token is a
+    /// sub-resource, and listing page 2+ is rejected with SignatureDoesNotMatch when
+    /// it is left out.
+    /// </remarks>
+    private static readonly string[] SignedQueryKeys = ["continuation-token"];
+
+    /// <summary>
+    /// Picks the signed sub-resources out of a raw query string such as
+    /// "?list-type=2&amp;continuation-token=abc". Values are unescaped, because the
+    /// signature is computed over the value as sent by the caller, not its URL form.
+    /// </summary>
+    /// <returns>The sub-resources to sign, or <c>null</c> when there are none.</returns>
+    private static Dictionary<string, string>? ExtractSignedQuery(string? query)
+    {
+        if (string.IsNullOrEmpty(query))
+            return null;
+
+        Dictionary<string, string>? signed = null;
+        foreach (var pair in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var separator = pair.IndexOf('=');
+            var key = separator < 0 ? pair : pair[..separator];
+            if (!SignedQueryKeys.Contains(key, StringComparer.Ordinal))
+                continue;
+
+            var value = separator < 0 ? string.Empty : Uri.UnescapeDataString(pair[(separator + 1)..]);
+            (signed ??= [])[key] = value;
+        }
+
+        return signed;
     }
 
     private static byte[] HmacSha1(string key, string data)
