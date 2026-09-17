@@ -94,7 +94,7 @@
 
                     <!-- File toolbar -->
                     <Grid Grid.Row="0"
-                          ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*"
+                          ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*"
                           Margin="8,6,0,4">
                         <CheckBox Grid.Column="0"
                                   IsChecked="{Binding FileList.IsAllSelected}"
@@ -109,12 +109,14 @@
                                 IsEnabled="{Binding !FileList.IsFileOperationBusy}"
                                 ToolTip.Tip="{Binding FileList.UploadTargetDisplay}"
                                 Margin="0,0,4,0" />
-                        <!-- These four act on a specific file, so they stay disabled
-                             until one is selected. Delete also accepts checked rows. -->
+                        <!-- Download and Delete act on the checked rows when there are
+                             any, and fall back to the selected row otherwise. Preview
+                             and Generate Signed URL are single-file operations, so they
+                             need a row selection. -->
                         <Button Grid.Column="2"
                                 Content="{Binding LanguageService[btn_download]}"
                                 Command="{Binding FileList.DownloadCommand}"
-                                IsEnabled="{Binding FileList.CanActOnFile}"
+                                IsEnabled="{Binding FileList.CanDownload}"
                                 Margin="0,0,4,0" />
                         <Button Grid.Column="3"
                                 Content="{Binding LanguageService[btn_delete]}"
@@ -153,10 +155,30 @@
                                       IsVisible="{Binding !FileList.IsTreeView}" />
                             </Panel>
                         </Button>
-                        <Grid Grid.Column="7" VerticalAlignment="Center">
+                        <!-- Narrows the listing to files past the cleanup threshold, so
+                             they can be selected and cleared in one pass. The broom ties
+                             it to the marker on the rows; the label lives in the tooltip
+                             to keep the toolbar inside a narrow window. -->
+                        <StackPanel Grid.Column="7"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,12,0"
+                                    ToolTip.Tip="{Binding LanguageService[tooltip_cleanable_filter]}">
+                            <CheckBox IsChecked="{Binding FileList.ShowCleanableOnly}"
+                                      IsEnabled="{Binding !FileList.IsFileOperationBusy}"
+                                      VerticalAlignment="Center" />
+                            <Panel Width="14" Height="14"
+                                   Margin="2,0,0,0"
+                                   VerticalAlignment="Center">
+                                <Path Data="M9,1 H11 V10 H9 Z M6.5,9.5 H13.5 L16.5,18 H3.5 Z"
+                                      Fill="#E07B00"
+                                      Stretch="Uniform" />
+                            </Panel>
+                        </StackPanel>
+                        <Grid Grid.Column="8" VerticalAlignment="Center">
                             <TextBox Text="{Binding FileList.SearchText}"
                                      PlaceholderText="{Binding LanguageService[hint_search]}"
-                                     MinWidth="120"
+                                     MinWidth="70"
                                      Padding="6,4,28,4" />
                             <TextBlock Text="🔍"
                                        FontSize="14"
@@ -197,7 +219,7 @@
                                                         SortMemberPath="Name">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Grid ColumnDefinitions="Auto,*"
+                                            <Grid ColumnDefinitions="Auto,*,Auto"
                                                   VerticalAlignment="Center">
                                                 <Panel Grid.Column="0"
                                                        Width="14" Height="14"
@@ -218,6 +240,22 @@
                                                            Text="{Binding Name}"
                                                            VerticalAlignment="Center"
                                                            TextTrimming="CharacterEllipsis" />
+                                                <!-- Broom: not touched within the configured
+                                                     number of days, so it is a candidate for
+                                                     cleanup. Only files carry it — a directory
+                                                     has no age of its own. -->
+                                                <Panel Grid.Column="2"
+                                                       Width="14" Height="14"
+                                                       Margin="6,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       IsVisible="{Binding IsCleanable}"
+                                                       ToolTip.Tip="{Binding CleanableTooltip}">
+                                                    <!-- Handle and flared head in one geometry, so
+                                                         Stretch keeps their relative positions -->
+                                                    <Path Data="M9,1 H11 V10 H9 Z M6.5,9.5 H13.5 L16.5,18 H3.5 Z"
+                                                          Fill="#E07B00"
+                                                          Stretch="Uniform" />
+                                                </Panel>
                                             </Grid>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
@@ -240,7 +278,8 @@
                                   IsVisible="{Binding FileList.IsTreeView}"
                                   ItemsSource="{Binding FileList.TreeNodes}"
                                   SelectedItem="{Binding FileList.SelectedNode}"
-                                  Margin="8,4,8,0">
+                                  Margin="8,4,8,0"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <TreeView.Styles>
                                 <!-- x:DataType is required here: the binding targets the
                                      node, not the window view model in scope above. -->
@@ -252,13 +291,13 @@
                             <TreeView.ItemTemplate>
                                 <TreeDataTemplate ItemsSource="{Binding Children}"
                                                   x:DataType="models:OssObjectItem">
-                                    <Grid ColumnDefinitions="28,Auto,*,120,180"
+                                    <Grid ColumnDefinitions="28,Auto,*,Auto,120,180"
                                           VerticalAlignment="Center">
-                                        <!-- Directory nodes are not batch-selectable; the
-                                             border keeps file labels aligned with them -->
+                                        <!-- A directory's checkbox is tri-state: it shows
+                                             whether every file below it is checked (true),
+                                             none is (false) or only some are (null). -->
                                         <Border Grid.Column="0" Width="28">
-                                            <CheckBox IsVisible="{Binding !IsFolder}"
-                                                      IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                                       HorizontalAlignment="Center"
                                                       VerticalAlignment="Center" />
                                         </Border>
@@ -281,11 +320,22 @@
                                                    Text="{Binding LeafName}"
                                                    VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="3"
+                                        <!-- Cleanup broom, as in the flat list -->
+                                        <Panel Grid.Column="3"
+                                               Width="14" Height="14"
+                                               Margin="6,0,0,0"
+                                               VerticalAlignment="Center"
+                                               IsVisible="{Binding IsCleanable}"
+                                               ToolTip.Tip="{Binding CleanableTooltip}">
+                                            <Path Data="M9,1 H11 V10 H9 Z M6.5,9.5 H13.5 L16.5,18 H3.5 Z"
+                                                  Fill="#E07B00"
+                                                  Stretch="Uniform" />
+                                        </Panel>
+                                        <TextBlock Grid.Column="4"
                                                    Text="{Binding SizeDisplay}"
                                                    VerticalAlignment="Center"
                                                    Foreground="Gray" />
-                                        <TextBlock Grid.Column="4"
+                                        <TextBlock Grid.Column="5"
                                                    Text="{Binding LastModifiedDisplay}"
                                                    VerticalAlignment="Center"
                                                    Foreground="Gray" />
@@ -378,6 +428,31 @@
                               SelectedItem="{Binding Settings.SelectedTimeFormat}"
                               MinWidth="150"
                               HorizontalAlignment="Left" />
+
+                    <!-- Cleanup threshold: files older than this get a badge in the file list -->
+                    <TextBlock Text="{Binding LanguageService[lbl_cleanable_days]}" FontWeight="SemiBold" />
+                    <NumericUpDown Value="{Binding Settings.EditCleanableDays}"
+                                   Minimum="0"
+                                   Maximum="3650"
+                                   Increment="1"
+                                   FormatString="0"
+                                   MinWidth="150"
+                                   HorizontalAlignment="Left" />
+                    <TextBlock Text="{Binding LanguageService[hint_cleanable_days]}"
+                               Foreground="Gray"
+                               FontSize="11"
+                               TextWrapping="Wrap"
+                               MaxWidth="500" />
+
+                    <!-- Directories the cleanup flag applies to -->
+                    <TextBlock Text="{Binding LanguageService[lbl_cleanable_paths]}" FontWeight="SemiBold" />
+                    <TextBox Text="{Binding Settings.EditCleanablePaths}"
+                             PlaceholderText="{Binding LanguageService[hint_cleanable_paths]}" />
+                    <TextBlock Text="{Binding LanguageService[hint_cleanable_paths_help]}"
+                               Foreground="Gray"
+                               FontSize="11"
+                               TextWrapping="Wrap"
+                               MaxWidth="500" />
 
                     <!-- Buttons -->
                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,16,0,0">

@@ -55,6 +55,26 @@ public class OssConfig
     public string ViewMode { get; set; } = "tree";
 
     /// <summary>
+    /// Age in days after which an object is flagged as cleanable in the file list.
+    /// Set to 0 or a negative value to turn the flag off.
+    /// </summary>
+    [JsonPropertyName("cleanableDays")]
+    public int CleanableDays { get; set; } = DefaultCleanableDays;
+
+    /// <summary>
+    /// Cleanup threshold used when the config carries no explicit value.
+    /// </summary>
+    public const int DefaultCleanableDays = 30;
+
+    /// <summary>
+    /// Comma-separated directories (relative to <see cref="BasePrefix"/>) the cleanup
+    /// flag applies to, e.g. "backend,frontend". Leave empty — the default — to flag
+    /// stale objects in every directory.
+    /// </summary>
+    [JsonPropertyName("cleanablePaths")]
+    public string CleanablePaths { get; set; } = string.Empty;
+
+    /// <summary>
     /// Returns true if all required credential fields are populated.
     /// </summary>
     [JsonIgnore]

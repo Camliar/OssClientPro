@@ -110,6 +110,21 @@
   <data name="hint_base_prefix" xml:space="preserve">
     <value>可选，如 data/（留空表示根目录）</value>
   </data>
+  <data name="lbl_cleanable_days" xml:space="preserve">
+    <value>可清理阈值（天）</value>
+  </data>
+  <data name="hint_cleanable_days" xml:space="preserve">
+    <value>超过该天数未更新的文件会标记为可清理；填 0 关闭该标记。</value>
+  </data>
+  <data name="lbl_cleanable_paths" xml:space="preserve">
+    <value>生效目录</value>
+  </data>
+  <data name="hint_cleanable_paths" xml:space="preserve">
+    <value>留空表示全部目录</value>
+  </data>
+  <data name="hint_cleanable_paths_help" xml:space="preserve">
+    <value>只标记这些目录下的过期文件，多个目录用逗号分隔（如 backend,frontend）；目录为相对授权路径的路径。</value>
+  </data>
 
   <!-- ==================== Bucket List ==================== -->
   <data name="lbl_buckets" xml:space="preserve">
@@ -134,6 +149,12 @@
   </data>
   <data name="lbl_last_modified" xml:space="preserve">
     <value>最后修改时间</value>
+  </data>
+  <data name="tooltip_cleanable" xml:space="preserve">
+    <value>已超过设置的可清理天数未更新</value>
+  </data>
+  <data name="tooltip_cleanable_filter" xml:space="preserve">
+    <value>只显示可清理的文件（目录不参与）</value>
   </data>
   <data name="msg_no_files" xml:space="preserve">
     <value>该存储空间为空。</value>
@@ -172,6 +193,12 @@
   </data>
   <data name="msg_download_success" xml:space="preserve">
     <value>文件下载成功。</value>
+  </data>
+  <data name="msg_download_batch_success" xml:space="preserve">
+    <value>已下载 {0} 个文件。</value>
+  </data>
+  <data name="msg_download_batch_partial" xml:space="preserve">
+    <value>已下载 {0}/{1} 个文件，其余失败，详见日志。</value>
   </data>
   <data name="msg_download_failed" xml:space="preserve">
     <value>下载失败。</value>

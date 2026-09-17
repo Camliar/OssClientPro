@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -39,6 +40,7 @@ public partial class FileListViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(UploadTargetDisplay))]
     [NotifyPropertyChangedFor(nameof(CanActOnFile))]
     [NotifyPropertyChangedFor(nameof(CanDelete))]
+    [NotifyPropertyChangedFor(nameof(CanDownload))]
     public partial OssObjectItem? SelectedFile { get; set; }
 
     /// <summary>
@@ -69,18 +71,30 @@ public partial class FileListViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanActOnFile))]
     [NotifyPropertyChangedFor(nameof(CanDelete))]
+    [NotifyPropertyChangedFor(nameof(CanDownload))]
     public partial bool IsFileOperationBusy { get; set; }
 
+    /// <summary>
+    /// State of the "select all" checkbox: <c>true</c> when every row currently shown
+    /// is checked, <c>false</c> when none is, and <c>null</c> (indeterminate) when only
+    /// some are — the same three-state rule as a directory node.
+    /// </summary>
     [ObservableProperty]
-    public partial bool IsAllSelected { get; set; }
+    public partial bool? IsAllSelected { get; set; }
 
+    /// <summary>
+    /// Number of checked files across the whole listing, including rows hidden by the
+    /// search filter or collapsed inside a tree node. Batch commands act on exactly
+    /// this set, so the count in the status bar always matches what they will do.
+    /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanDelete))]
+    [NotifyPropertyChangedFor(nameof(CanDownload))]
     public partial int SelectedCount { get; set; }
 
     /// <summary>
-    /// Whether a command that acts on one specific file — download, preview, signed
-    /// URL — can run: a file must be selected and no other operation in flight.
+    /// Whether a command that acts on one specific file — preview, signed URL — can
+    /// run: a file must be selected and no other operation in flight.
     /// </summary>
     public bool CanActOnFile => !IsFileOperationBusy && SelectedFile != null;
 
@@ -89,6 +103,12 @@ public partial class FileListViewModel : ViewModelBase
     /// so it stays enabled when only checkboxes are ticked.
     /// </summary>
     public bool CanDelete => !IsFileOperationBusy && (SelectedFile != null || SelectedCount > 0);
+
+    /// <summary>
+    /// Whether download can run — same rule as delete, because it also downloads every
+    /// checked file when there is more than one.
+    /// </summary>
+    public bool CanDownload => !IsFileOperationBusy && (SelectedFile != null || SelectedCount > 0);
 
     // ─── Status bar stats ───
 
@@ -105,6 +125,13 @@ public partial class FileListViewModel : ViewModelBase
     /// <summary>Search filter text. Filters files by name/key as you type.</summary>
     [ObservableProperty]
     public partial string SearchText { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether the listing is narrowed to files past the cleanup threshold, so the
+    /// stale ones can be reviewed and cleared in one pass.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool ShowCleanableOnly { get; set; }
 
     // ─── Notification toast ───
 
@@ -124,6 +151,19 @@ public partial class FileListViewModel : ViewModelBase
     /// <summary>Set while <see cref="ApplyViewMode"/> restores the saved mode, so
     /// loading settings does not immediately write them back to disk.</summary>
     private bool _suppressViewModePersist;
+
+    /// <summary>
+    /// Set while this view model writes check states itself. Every write raises
+    /// <see cref="OssObjectItem.PropertyChanged"/>, and re-entering the roll-up from
+    /// inside it would recompute the same tree repeatedly.
+    /// </summary>
+    private bool _updatingSelection;
+
+    /// <summary>Age at which an object is flagged cleanable. 0 disables the flag.</summary>
+    private int _cleanableDays = OssConfig.DefaultCleanableDays;
+
+    /// <summary>Directories the cleanup flag applies to. Empty means every directory.</summary>
+    private string[] _cleanableRoots = [];
 
     public FileListViewModel() : this(new OssService(), null!) { }
 
@@ -150,6 +190,11 @@ public partial class FileListViewModel : ViewModelBase
     }
 
     partial void OnSearchTextChanged(string value)
+    {
+        ApplySearchFilter();
+    }
+
+    partial void OnShowCleanableOnlyChanged(bool value)
     {
         ApplySearchFilter();
     }
@@ -182,8 +227,11 @@ public partial class FileListViewModel : ViewModelBase
                 obj.IsDirectoryPlaceholder = obj.Key.EndsWith('/');
                 obj.SizeDisplay = _main.LanguageService.FormatFileSize(obj.Size);
                 obj.LastModifiedDisplay = _main.LanguageService.FormatDateTime(obj.LastModified);
+                obj.CleanableTooltip = _main.LanguageService["tooltip_cleanable"];
                 obj.IsSelected = false;
+                UpdateCleanableFlag(obj);
                 (obj.CanPreview, obj.IsTextFile) = ClassifyFile(obj.Name);
+                obj.PropertyChanged += OnItemSelectionChanged;
                 _allFiles.Add(obj);
             }
 
@@ -216,18 +264,39 @@ public partial class FileListViewModel : ViewModelBase
 
         foreach (var f in _allFiles)
         {
-            if (q.Length == 0 ||
-                f.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ||
-                f.Key.Contains(q, StringComparison.OrdinalIgnoreCase))
-            {
+            if (MatchesFilter(f, q))
                 Files.Add(f);
-            }
         }
 
         // Rebuild before pruning so nodes removed by a previous query come back.
         BuildTree();
-        if (q.Length > 0)
+        if (q.Length > 0 || ShowCleanableOnly)
             PruneTree(TreeNodes, q);
+
+        // Both lists changed shape, so the checkbox states have to be re-derived.
+        RefreshSelectionState();
+    }
+
+    /// <summary>
+    /// Whether a node passes the search box and the cleanable-only filter.
+    /// </summary>
+    /// <remarks>
+    /// A directory node has no age of its own, so it never matches the cleanable
+    /// filter — it survives pruning through the children that do match. Its name is
+    /// still matched against the search text, so typing "backend" keeps that whole
+    /// subtree on screen.
+    /// </remarks>
+    private bool MatchesFilter(OssObjectItem node, string query)
+    {
+        var nameMatch = query.Length > 0 && node.Name.Contains(query, StringComparison.OrdinalIgnoreCase);
+
+        if (node.IsFolder)
+            return nameMatch;
+
+        if (ShowCleanableOnly && !node.IsCleanable)
+            return false;
+
+        return query.Length == 0 || nameMatch || node.Key.Contains(query, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -272,6 +341,9 @@ public partial class FileListViewModel : ViewModelBase
                         LeafName = segments[i],
                         IsFolder = true
                     };
+                    // A directory's check state lives in the roll-up, but the click
+                    // that sets it arrives as a normal property change.
+                    directory.PropertyChanged += OnItemSelectionChanged;
                     directories[path] = directory;
                     (parent?.Children ?? TreeNodes).Add(directory);
                 }
@@ -304,19 +376,20 @@ public partial class FileListViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Drops tree nodes that neither match <paramref name="query"/> nor contain a
-    /// matching descendant, and expands the ancestors of every hit so results stay
-    /// visible in context. Runs against a freshly built tree.
+    /// Drops tree nodes that neither pass the active filters nor contain a matching
+    /// descendant, and expands the ancestors of every hit so results stay visible in
+    /// context. Runs against a freshly built tree.
     /// </summary>
+    /// <param name="query">Trimmed search text; empty when only the cleanable filter is on.</param>
     /// <returns>Whether any node survived in this subtree.</returns>
-    private static bool PruneTree(ObservableCollection<OssObjectItem> nodes, string query)
+    private bool PruneTree(ObservableCollection<OssObjectItem> nodes, string query)
     {
         var anyKept = false;
 
         // Snapshot — the collection is rewritten while iterating.
         foreach (var node in nodes.ToList())
         {
-            var selfMatch = node.Name.Contains(query, StringComparison.OrdinalIgnoreCase);
+            var selfMatch = MatchesFilter(node, query);
             var descendantMatch = PruneTree(node.Children, query);
 
             if (selfMatch || descendantMatch)
@@ -333,22 +406,165 @@ public partial class FileListViewModel : ViewModelBase
         return anyKept;
     }
 
-    // ──────────────────────── Select-All ────────────────────────
+    // ──────────────────────── Selection ────────────────────────
 
+    /// <summary>
+    /// Toggles every row currently shown. Rows hidden by the search filter keep
+    /// their state — "select all" means all of what the user can see.
+    /// </summary>
     [RelayCommand]
     private void ToggleSelectAll()
     {
-        var select = Files.Count > 0 && SelectedCount < Files.Count;
+        var select = Files.Count > 0 && Files.Any(f => f.IsSelected != true);
         foreach (var file in Files)
             file.IsSelected = select;
         RefreshSelectionState();
     }
 
+    /// <summary>
+    /// Keeps the toolbar in step with the checkboxes. Ticking a row is a plain
+    /// property change on <see cref="OssObjectItem"/>, so without this the counts
+    /// behind <see cref="CanDelete"/> and <see cref="CanDownload"/> never move.
+    /// </summary>
+    private void OnItemSelectionChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_updatingSelection || e.PropertyName != nameof(OssObjectItem.IsSelected))
+            return;
+
+        // A directory's state is rolled up from its children, so a state arriving
+        // here is a user click and has to be pushed down before the roll-up runs.
+        // (null is written by the roll-up itself and means "some children".)
+        if (sender is OssObjectItem { IsFolder: true } folder && folder.IsSelected != null)
+        {
+            _updatingSelection = true;
+            try
+            {
+                ApplySelection(folder.Children, folder.IsSelected == true);
+            }
+            finally
+            {
+                _updatingSelection = false;
+            }
+        }
+
+        RefreshSelectionState();
+    }
+
+    /// <summary>
+    /// Applies a directory's check state to every file below it. Directory nodes are
+    /// skipped: their own state is derived, so writing it here would be overwritten.
+    /// </summary>
+    private static void ApplySelection(IEnumerable<OssObjectItem> nodes, bool selected)
+    {
+        foreach (var node in nodes)
+        {
+            if (node.IsFolder)
+                ApplySelection(node.Children, selected);
+            else
+                node.IsSelected = selected;
+        }
+    }
+
+    /// <summary>
+    /// Recomputes the directory roll-ups and the counters behind the toolbar buttons.
+    /// </summary>
     private void RefreshSelectionState()
     {
-        var count = Files.Count(f => f.IsSelected);
-        SelectedCount = count;
-        IsAllSelected = count > 0 && count == Files.Count;
+        _updatingSelection = true;
+        try
+        {
+            RollUpFolderStates(TreeNodes);
+
+            SelectedCount = _allFiles.Count(f => f.IsSelected == true);
+
+            var shown = Files.Count;
+            var checkedShown = Files.Count(f => f.IsSelected == true);
+            IsAllSelected = shown == 0 || checkedShown == 0
+                ? false
+                : checkedShown == shown
+                    ? true
+                    : (bool?)null;
+        }
+        finally
+        {
+            _updatingSelection = false;
+        }
+    }
+
+    /// <summary>
+    /// Propagates the check state of every directory node up from its files.
+    /// </summary>
+    /// <returns>
+    /// The state of <paramref name="nodes"/> as a whole: <c>true</c> when every file
+    /// below is checked, <c>false</c> when none is, <c>null</c> when only some are.
+    /// </returns>
+    private static bool? RollUpFolderStates(IList<OssObjectItem> nodes)
+    {
+        var anyChecked = false;
+        var allChecked = true;
+
+        foreach (var node in nodes)
+        {
+            var state = node.IsFolder ? RollUpFolderStates(node.Children) : node.IsSelected == true;
+
+            if (node.IsFolder)
+                node.IsSelected = state;
+
+            if (state == true)
+                anyChecked = true;
+            else
+                allChecked = false;
+        }
+
+        if (nodes.Count == 0)
+            return false;
+
+        return allChecked ? true : anyChecked ? null : false;
+    }
+
+    /// <summary>
+    /// Unchecks everything. A check made in one view says nothing about the other —
+    /// the flat list has no directory rows to roll up — so switching views starts
+    /// from a clean sheet instead of a half-true selection.
+    /// </summary>
+    private void ClearSelection()
+    {
+        _updatingSelection = true;
+        try
+        {
+            foreach (var file in _allFiles)
+                file.IsSelected = false;
+
+            foreach (var node in TreeNodes)
+                ClearSelectionRecursive(node);
+        }
+        finally
+        {
+            _updatingSelection = false;
+        }
+
+        RefreshSelectionState();
+    }
+
+    private static void ClearSelectionRecursive(OssObjectItem node)
+    {
+        node.IsSelected = false;
+        foreach (var child in node.Children)
+            ClearSelectionRecursive(child);
+    }
+
+    /// <summary>
+    /// The files a batch command acts on: every checked file, or the row selected in
+    /// the grid or tree when nothing is checked. Checked rows win — they are the more
+    /// explicit choice, and the count in the status bar refers to exactly them.
+    /// </summary>
+    private List<OssObjectItem> CollectTargets()
+    {
+        var checkedFiles = _allFiles.Where(f => f.IsSelected == true).ToList();
+        if (checkedFiles.Count > 0)
+            return checkedFiles;
+
+        return SelectedFile != null ? [SelectedFile] : [];
     }
 
     // ──────────────────────── Notification Toast ────────────────────────
@@ -448,6 +664,10 @@ public partial class FileListViewModel : ViewModelBase
 
     partial void OnIsTreeViewChanged(bool value)
     {
+        // The two views share the file instances but not the directory nodes, and the
+        // rows on screen are not even the same set — drop the checks on every switch.
+        ClearSelection();
+
         if (_suppressViewModePersist)
             return;
 
@@ -462,6 +682,90 @@ public partial class FileListViewModel : ViewModelBase
     {
         var slash = relativeName.LastIndexOf('/');
         return slash < 0 ? string.Empty : relativeName[..(slash + 1)];
+    }
+
+    // ──────────────────────── Cleanup flag ────────────────────────
+
+    /// <summary>
+    /// Applies the cleanup settings and re-evaluates the listing already on screen,
+    /// so a change in the settings panel shows up without a reload.
+    /// </summary>
+    /// <param name="days">Age in days. 0 or less turns the flag off.</param>
+    /// <param name="paths">
+    /// Comma-separated directories the flag applies to, relative to the base prefix.
+    /// Empty — the default — means every directory.
+    /// </param>
+    public void ApplyCleanableSettings(int days, string? paths)
+    {
+        _cleanableDays = days;
+        _cleanableRoots = ParseCleanableRoots(paths);
+
+        foreach (var file in _allFiles)
+            UpdateCleanableFlag(file);
+
+        // The marks changed, so a cleanable-only listing has to be rebuilt too.
+        ApplySearchFilter();
+    }
+
+    /// <summary>
+    /// Splits the configured directory list into path prefixes. Entries get a trailing
+    /// slash so "backend" matches "backend/dev/app.log" without also matching
+    /// "backend-old/app.log"; an empty list means every directory qualifies.
+    /// </summary>
+    private static string[] ParseCleanableRoots(string? paths)
+    {
+        if (string.IsNullOrWhiteSpace(paths))
+            return [];
+
+        var roots = new List<string>();
+        foreach (var part in paths.Split(',',
+                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            // OSS keys use '/', but a path pasted from Explorer should still work.
+            var root = part.Replace('\\', '/').TrimStart('/');
+            if (root.Length == 0)
+                continue;
+
+            roots.Add(root.EndsWith('/') ? root : root + "/");
+        }
+
+        return [.. roots];
+    }
+
+    /// <summary>
+    /// Flags a real OSS object whose Last-Modified lies before the configured
+    /// threshold and that sits in one of the configured directories. Directories are
+    /// never flagged — neither tree nodes nor the placeholder objects the console
+    /// creates for a folder, since clearing one is a directory decision, not an age
+    /// decision. An unparsable timestamp also stays unflagged rather than reading as
+    /// infinitely old.
+    /// </summary>
+    private void UpdateCleanableFlag(OssObjectItem item)
+    {
+        item.IsCleanable = _cleanableDays > 0
+            && !item.IsFolder
+            && !item.IsDirectoryPlaceholder
+            && IsInCleanableScope(item.Name)
+            && item.LastModified != DateTime.MinValue
+            && item.LastModified < DateTime.UtcNow.AddDays(-_cleanableDays);
+    }
+
+    /// <summary>
+    /// Whether the object's relative path sits under one of the configured cleanup
+    /// directories.
+    /// </summary>
+    private bool IsInCleanableScope(string relativeName)
+    {
+        if (_cleanableRoots.Length == 0)
+            return true;
+
+        foreach (var root in _cleanableRoots)
+        {
+            if (relativeName.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 
     // ──────────────────────── Upload ────────────────────────
@@ -674,7 +978,8 @@ public partial class FileListViewModel : ViewModelBase
     [RelayCommand]
     private async Task DownloadAsync()
     {
-        if (SelectedFile == null)
+        var targets = CollectTargets();
+        if (targets.Count == 0)
         {
             _main.StatusMessage = _main.LanguageService["msg_select_file"];
             return;
@@ -694,14 +999,6 @@ public partial class FileListViewModel : ViewModelBase
 
             if (folder.Count == 0) return;
 
-            var localPath = BuildDownloadPath(folder[0].Path.LocalPath, SelectedFile.Name);
-            if (localPath == null)
-            {
-                _main.StatusMessage = _main.LanguageService["msg_download_path_invalid"];
-                return;
-            }
-            App.Log.Info($"Download: oss://{SelectedBucket}/{SelectedFile.Key} → {localPath}");
-
             IsFileOperationBusy = true;
             IsProgressVisible = true;
             _main.StatusMessage = _main.LanguageService["msg_downloading"];
@@ -712,10 +1009,47 @@ public partial class FileListViewModel : ViewModelBase
                 IsProgressVisible = value < 100;
             });
 
-            await _ossService.DownloadFileAsync(SelectedBucket!, SelectedFile.Key, localPath, progress);
+            var targetFolder = folder[0].Path.LocalPath;
+            var downloaded = 0;
+            Exception? firstError = null;
 
-            _main.StatusMessage = _main.LanguageService["msg_download_success"];
-            _ = ShowNotificationAsync(_main.LanguageService["msg_download_success"]);
+            foreach (var file in targets)
+            {
+                // Each file keeps its own relative path under the picked folder.
+                var localPath = BuildDownloadPath(targetFolder, file.Name);
+                if (localPath == null)
+                {
+                    App.Log.Error($"Download: {file.Name} resolves outside the target folder, skipped");
+                    continue;
+                }
+
+                try
+                {
+                    App.Log.Info($"Download: oss://{SelectedBucket}/{file.Key} → {localPath}");
+                    await _ossService.DownloadFileAsync(SelectedBucket!, file.Key, localPath, progress);
+                    downloaded++;
+                }
+                catch (Exception ex)
+                {
+                    // One unreadable object must not abandon the rest of the batch.
+                    firstError ??= ex;
+                    App.Log.Error($"Download failed: oss://{SelectedBucket}/{file.Key}", ex);
+                }
+            }
+
+            var message = downloaded == targets.Count
+                ? targets.Count == 1
+                    ? _main.LanguageService["msg_download_success"]
+                    : string.Format(_main.LanguageService["msg_download_batch_success"], downloaded)
+                : downloaded > 0
+                    ? string.Format(_main.LanguageService["msg_download_batch_partial"], downloaded, targets.Count)
+                    : firstError != null
+                        ? OssExceptionHelper.GetFriendlyMessage(firstError, _main.LanguageService)
+                        : _main.LanguageService["msg_download_path_invalid"];
+
+            _main.StatusMessage = message;
+            if (downloaded > 0)
+                _ = ShowNotificationAsync(message);
         }
         catch (Exception ex)
         {
@@ -734,9 +1068,7 @@ public partial class FileListViewModel : ViewModelBase
     [RelayCommand]
     private async Task DeleteAsync()
     {
-        var toDelete = Files.Where(f => f.IsSelected).ToList();
-        if (toDelete.Count == 0 && SelectedFile != null)
-            toDelete = [SelectedFile];
+        var toDelete = CollectTargets();
 
         if (toDelete.Count == 0)
         {

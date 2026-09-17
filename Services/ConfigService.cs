@@ -68,7 +68,9 @@ public class ConfigService
                     BasePrefix = config.BasePrefix,
                     Language = config.Language,
                     TimeFormat = config.TimeFormat,
-                    ViewMode = config.ViewMode
+                    ViewMode = config.ViewMode,
+                    CleanableDays = config.CleanableDays,
+                    CleanablePaths = config.CleanablePaths
                 };
 
                 var json = JsonSerializer.Serialize(toSave, _jsonContext.OssConfig);

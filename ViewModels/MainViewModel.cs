@@ -167,6 +167,9 @@ public partial class MainViewModel : ViewModelBase
 
             FileList.SetBasePrefix(config.BasePrefix);
             FileList.ApplyViewMode(config.ViewMode);
+            // Before the bucket is picked: that assignment is what triggers the load
+            // which stamps the cleanup flag onto every object.
+            FileList.ApplyCleanableSettings(config.CleanableDays, config.CleanablePaths);
             FileList.Buckets.Clear();
 
             if (!string.IsNullOrEmpty(config.DefaultBucket))

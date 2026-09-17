@@ -68,9 +68,26 @@ public partial class OssObjectItem : ObservableObject
 
     /// <summary>
     /// Whether this item is checked for batch operations (delete, download, etc.).
+    /// Directory nodes are tri-state: <c>true</c> when every file below them is
+    /// checked, <c>false</c> when none is, and <c>null</c> (indeterminate) when only
+    /// some are. Their state is always rolled up from the children by the view model,
+    /// never set by the user directly.
     /// </summary>
     [ObservableProperty]
-    public partial bool IsSelected { get; set; }
+    public partial bool? IsSelected { get; set; }
+
+    /// <summary>
+    /// Whether this object is older than the configured cleanup threshold
+    /// (<see cref="OssConfig.CleanableDays"/>) and is therefore a candidate for
+    /// deletion. Only real OSS objects are flagged — directory nodes are not objects.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsCleanable { get; set; }
+
+    /// <summary>
+    /// Localized explanation shown when hovering the cleanup marker.
+    /// </summary>
+    public string CleanableTooltip { get; set; } = string.Empty;
 
     /// <summary>
     /// Whether this node is expanded in the tree view. Directory nodes start

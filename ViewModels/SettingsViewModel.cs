@@ -73,6 +73,20 @@ public partial class SettingsViewModel : ViewModelBase
     public partial string SelectedTimeFormat { get; set; } = "auto";
 
     /// <summary>
+    /// Age in days beyond which files are flagged as cleanable in the file list.
+    /// 0 turns the flag off.
+    /// </summary>
+    [ObservableProperty]
+    public partial int EditCleanableDays { get; set; } = OssConfig.DefaultCleanableDays;
+
+    /// <summary>
+    /// Comma-separated directories the cleanup flag applies to. Empty means every
+    /// directory.
+    /// </summary>
+    [ObservableProperty]
+    public partial string EditCleanablePaths { get; set; } = string.Empty;
+
+    /// <summary>
     /// Feedback message shown after save.
     /// </summary>
     [ObservableProperty]
@@ -126,6 +140,8 @@ public partial class SettingsViewModel : ViewModelBase
             SelectedLanguage = config.Language;
 
         SelectedTimeFormat = string.IsNullOrEmpty(config.TimeFormat) ? "auto" : config.TimeFormat;
+        EditCleanableDays = config.CleanableDays;
+        EditCleanablePaths = config.CleanablePaths;
     }
 
     /// <summary>
@@ -152,12 +168,14 @@ public partial class SettingsViewModel : ViewModelBase
             DefaultBucket = EditDefaultBucket.Trim(),
             BasePrefix = EditBasePrefix.Trim(),
             Language = SelectedLanguage,
-            TimeFormat = SelectedTimeFormat
+            TimeFormat = SelectedTimeFormat,
+            CleanableDays = EditCleanableDays,
+            CleanablePaths = EditCleanablePaths.Trim()
         };
 
         await _configService.SaveConfigAsync(config);
 
-        App.Log.Info($"Config saved: endpoint={config.Endpoint}, bucket={config.DefaultBucket}, prefix={config.BasePrefix}, lang={config.Language}, timeFormat={config.TimeFormat}");
+        App.Log.Info($"Config saved: endpoint={config.Endpoint}, bucket={config.DefaultBucket}, prefix={config.BasePrefix}, lang={config.Language}, timeFormat={config.TimeFormat}, cleanableDays={config.CleanableDays}");
 
         _main?.LanguageService.SetLanguage(SelectedLanguage);
 
@@ -204,5 +222,25 @@ public partial class SettingsViewModel : ViewModelBase
                 file.LastModifiedDisplay = _main.LanguageService.FormatDateTime(file.LastModified);
             }
         }
+    }
+
+    /// <summary>
+    /// Handles cleanup setting changes — applied immediately, like the time format, so
+    /// the marks in the file list follow the form without a reconnect.
+    /// </summary>
+    partial void OnEditCleanableDaysChanged(int value)
+    {
+        ApplyCleanableSettings();
+    }
+
+    partial void OnEditCleanablePathsChanged(string value)
+    {
+        ApplyCleanableSettings();
+    }
+
+    private void ApplyCleanableSettings()
+    {
+        if (_main?.FileList is { } fileList)
+            fileList.ApplyCleanableSettings(EditCleanableDays, EditCleanablePaths);
     }
 }
